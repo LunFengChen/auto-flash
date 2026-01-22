@@ -1,0 +1,6 @@
+# 设备专属资源目录
+# 
+# 目录结构：
+# resources/devices/{device_model}/{build_version}/
+#   ├── firmware/     # 原厂刷机包
+#   └── root/         # 修补后的 boot.img

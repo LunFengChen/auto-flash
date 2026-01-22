@@ -1,0 +1,136 @@
+# Android 全自动刷机工具 - 全局配置
+
+# 全局设置
+global:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  max_retries: 3
+  default_timeout: 30  # 秒
+  
+  # ADB/Fastboot 配置
+  adb_path: "adb"       # 默认使用环境变量中的 adb，也可以指定完整路径
+  fastboot_path: "fastboot"  # 默认使用环境变量中的 fastboot，也可以指定完整路径
+  
+  # 通用资源路径
+  common_resources:
+    apks: "resources/common/apks"
+    modules: "resources/common/modules"
+    binary: "resources/common/binary"  # 持久化二进制文件（推送到 /data/local/tmp/，不清理）
+
+# 超时设置（秒）
+timeouts:
+  adb_connect: 30
+  fastboot_connect: 30
+  system_boot: 300
+  ui_operation: 10
+  flash_system: 600
+  boot_recovery: 120
+
+# 功能开关
+features:
+  auto_backup_boot: true          # 自动备份原厂 boot.img
+  auto_recovery: true             # 启动失败时自动恢复
+  skip_setup_wizard: true         # 是否跳过初始化向导
+  auto_enable_dev_mode: false     # 是否自动开启开发者模式
+  install_modules: true           # 是否安装模块
+  dry_run: false                  # 只打印操作，不执行
+  no_color: false                 # 禁用彩色输出
+
+# 批量刷机配置
+batch:
+  enabled: false
+  max_concurrent: 5               # 最大并发数
+  auto_detect_max: true           # 自动检测最佳并发数
+
+# Root 方案配置
+root:
+  method: "apatch"                # apatch, magisk, kernelsu, none
+  
+  apatch:
+    version: "11182"              # APatch 版本号（用于匹配修补后的 boot.img）
+    password: "xiaofeng777"       # 默认密码（建议修改）
+    apk_path: "root/APatch_11182_d52e119_main-debug.apk"  # APatch APK 相对于 resources/common/
+  
+  magisk:
+    version: "30600"              # Magisk 版本号（用于匹配修补后的 boot.img）
+    apk_path: "root/KitsuneMagisk-v30.6.apk"  # Magisk APK 相对于 resources/common/
+
+# APK 安装配置
+apk_install:
+  # 策略：Root APK + common/apks/ 下的所有 APK + 额外指定的 APK
+  
+  # 是否自动安装 Root 方案的 APK
+  install_root_apk: true
+  
+  # 额外的 APK 列表（相对于 resources/common/）
+  # 示例: ["custom/my_app.apk", "tools/another_app.apk"]
+  extra_apks: []
+
+# 模块安装配置
+module_install:
+  # 策略：
+  # 1. 推送 common/modules/zip/ 下的所有 ZIP 到设备
+  # 2. 使用 Root 管理器 CLI 自动安装
+  
+  # 是否启用模块安装
+  enabled: true
+  
+  # 模块安装方式
+  # "cli" - 使用 Root 管理器 CLI 自动安装
+  # "manual" - 只推送到设备，提示用户手动安装
+  install_method: "cli"
+  
+  # 模块配置（APatch 和 Magisk 通用）
+  # KPM 内核模块（仅 APatch 支持）
+  install_kpm: false
+  kpm_dir: "modules/kpm"
+  
+  # ZIP 通用模块（APatch 和 Magisk 都支持）
+  install_zip: true
+  
+  # LSP 功能（可选，APatch 和 Magisk 都支持）
+  install_lsp: false              # 是否安装 LSP
+  lsp_framework: "modules/zip/LSPosed-v1.9.2-7058-zygisk-release.zip"  # LSP 框架
+  lsp_modules_dir: "modules/lsp"            # LSP 模块目录
+  
+  # Zygisk 功能（可选，APatch 和 Magisk 都支持）
+  install_zygisk: false           # 是否安装 Zygisk
+  zygisk_modules_dir: "modules/zygisk"      # Zygisk 模块目录
+
+# 二进制工具配置
+binary:
+  # 策略：common/binary/ 下的所有文件 - 全推
+  # 无需配置列表，自动扫描推送
+  
+  # 是否启用二进制工具推送
+  enabled: true
+  
+  # 推送目标目录
+  target_dir: "/data/local/tmp"
+  
+  # 是否设置可执行权限
+  set_executable: true
+  
+  # 生命周期：持久化保留（不清理）
+  cleanup_after_flash: false
+
+backup:
+  max_backups: 3                  # 保留最近 N 次备份
+  backup_dir: "backups"
+
+# 日志配置
+logging:
+  log_dir: "logs"
+  max_log_files: 10               # 保留最近 N 个日志文件
+  log_format: "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s"
+
+# 设备配置
+devices:
+  redfin:
+    model: "redfin"
+    codename: "redfin"
+    display_name: "Google Pixel 5"
+    brand: "google"
+    android_version: 13
+    build_id: "TQ3A.230901.001.C2"
+    superkey: "xiaofeng777"
+    boot_img_source: "extract"  # extract, provided, patched

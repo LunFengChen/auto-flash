@@ -1,0 +1,6 @@
+# Root 管理器 APK（通用）
+# 存放 APatch、Magisk、KernelSU 等 Root 管理器的 APK
+# 例如：
+# - APatch_11142_166daa0_on_HEAD-release-signed.apk
+# - KitsuneMagisk-v30.6.apk
+# - KernelSU-v1.0.0.apk

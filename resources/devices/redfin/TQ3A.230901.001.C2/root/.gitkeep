@@ -1,0 +1,5 @@
+# Magisk 修补后的 boot 镜像
+# 命名格式：magisk_<版本号>_boot.img 或 magisk_<版本号>_init_boot.img
+# 例如：
+# - magisk_27002_boot.img
+# - magisk_30600_boot.img

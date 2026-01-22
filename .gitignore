@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.kiro/
+
+# 日志
+logs/
+*.log
+
+# 备份
+backups/
+
+# 临时文件
+*.tmp
+*.temp
+kernel
+ramdisk.cpio
+
+# 设备资源（不提交实际文件）
+# APK 文件
+*.apk
+resources/common/apks/*.apk
+resources/devices/*/*.apk
+
+# 镜像文件
+*.img
+!resources/common/tools/*.img
+
+# 模块文件
+*.zip
+*.kpm
+resources/common/modules/**/*.zip
+resources/common/modules/**/*.kpm
+resources/devices/*/root/*.img
+
+# 二进制工具
+resources/common/binary/*
+!resources/common/binary/.gitkeep
+
+# 官方刷机包
+resources/devices/*/firmware/
+
+# 只保留目录结构
+!resources/common/apks/.gitkeep
+!resources/common/modules/kpm/.gitkeep
+!resources/common/modules/zip/.gitkeep
+!resources/common/modules/lsp/.gitkeep
+!resources/common/modules/zygisk/.gitkeep
+!resources/devices/.gitkeep
+
+# 检查点
+checkpoint_*.json
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Linting
+.pylint.d/

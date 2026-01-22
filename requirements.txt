@@ -1,0 +1,36 @@
+# Android 全自动刷机工具 - Python 依赖
+
+# UI 自动化
+uiautomator2>=2.16.0
+
+# 配置文件解析
+pyyaml>=6.0
+
+# 日志
+loguru>=0.7.0
+colorama>=0.4.6
+
+# 进度条
+tqdm>=4.66.0
+
+# 命令行
+click>=8.1.0
+
+# 数据类和类型提示
+dataclasses>=0.6; python_version < '3.7'
+typing-extensions>=4.0.0
+
+# 文件操作
+pathlib2>=2.3.0; python_version < '3.4'
+
+# 哈希计算
+hashlib>=20081119; python_version < '3.0'
+
+# 多进程
+multiprocess>=0.70.0
+
+# HTTP 请求（用于下载资源）
+requests>=2.31.0
+
+# 时间处理
+python-dateutil>=2.8.0
