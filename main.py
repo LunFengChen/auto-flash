@@ -140,20 +140,27 @@ def check_device_checkpoint(serial: str) -> dict:
 
 def display_device_menu(devices: list):
     """显示设备选择菜单"""
+    # 先收集所有设备信息，避免日志和菜单混在一起
+    device_infos = []
+    for serial in devices:
+        checkpoint_info = check_device_checkpoint(serial)
+        device_infos.append((serial, checkpoint_info))
+    
+    # 统一输出菜单
     print("\n" + "=" * 60)
     print("检测到以下设备:")
     print("=" * 60)
     
-    for idx, serial in enumerate(devices, 1):
-        checkpoint_info = check_device_checkpoint(serial)
-        
+    for idx, (serial, checkpoint_info) in enumerate(device_infos, 1):
         if checkpoint_info["has_checkpoint"]:
             print(f"  [{idx}] {serial} (有检查点: {checkpoint_info['state']}, 已完成 {checkpoint_info['completed']} 步)")
         else:
             print(f"  [{idx}] {serial}")
     
-    print(f"  [A] 全部设备并发刷机")
-    print(f"  [Q] 退出")
+    print()
+    print("  [A] 全部设备并发刷机")
+    print("  [C] 清除所有检查点并重新刷机")
+    print("  [Q] 退出")
     print("=" * 60)
 
 
@@ -265,11 +272,34 @@ def main():
     display_device_menu(devices)
     
     # 获取用户选择
-    choice = input("\n请选择设备 (输入序号/A/Q): ").strip().upper()
+    choice = input("\n请选择设备 (输入序号/A/C/Q): ").strip().upper()
     
     if choice == 'Q':
         logger.info("已退出")
         sys.exit(0)
+    
+    # 处理清除检查点选项
+    if choice == 'C':
+        logger.info("\n清除所有检查点...")
+        for serial in devices:
+            cm = CheckpointManager(serial)
+            if cm.has_checkpoint():
+                cm.clear_checkpoint()
+                logger.info(f"✓ 已清除设备 {serial} 的检查点")
+            else:
+                logger.info(f"  设备 {serial} 没有检查点")
+        
+        logger.info("\n检查点已清除，将从头开始刷机")
+        logger.info("按 Enter 键继续...")
+        input()
+        
+        # 重新显示菜单
+        display_device_menu(devices)
+        choice = input("\n请选择设备 (输入序号/A/Q): ").strip().upper()
+        
+        if choice == 'Q':
+            logger.info("已退出")
+            sys.exit(0)
     
     # 自动获取设备型号
     device_model = None
