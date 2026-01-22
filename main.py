@@ -44,7 +44,8 @@ def setup_logger(log_level: str = "INFO"):
 
 
 def get_device_model(serial: str) -> str:
-    """获取设备型号"""
+    """获取设备型号（支持 ADB 和 Fastboot）"""
+    # 1. 尝试通过 ADB 获取
     try:
         result = subprocess.run(
             ["adb", "-s", serial, "shell", "getprop", "ro.product.device"],
@@ -52,10 +53,30 @@ def get_device_model(serial: str) -> str:
             text=True,
             timeout=5
         )
-        if result.returncode == 0:
+        if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
     except Exception as e:
-        logger.debug(f"获取设备型号失败: {e}")
+        logger.debug(f"ADB 获取设备型号失败: {e}")
+    
+    # 2. 尝试通过 Fastboot 获取
+    try:
+        result = subprocess.run(
+            ["fastboot", "-s", serial, "getvar", "product"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        # fastboot getvar 输出在 stderr 中
+        output = result.stderr.strip()
+        # 格式: "product: redfin"
+        for line in output.split('\n'):
+            if line.startswith('product:'):
+                model = line.split(':', 1)[1].strip()
+                if model:
+                    return model
+    except Exception as e:
+        logger.debug(f"Fastboot 获取设备型号失败: {e}")
+    
     return None
 
 
