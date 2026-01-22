@@ -289,17 +289,10 @@ def main():
             else:
                 logger.info(f"  设备 {serial} 没有检查点")
         
-        logger.info("\n检查点已清除，将从头开始刷机")
-        logger.info("按 Enter 键继续...")
-        input()
+        logger.info("\n检查点已清除，将从头开始刷机所有设备")
         
-        # 重新显示菜单
-        display_device_menu(devices)
-        choice = input("\n请选择设备 (输入序号/A/Q): ").strip().upper()
-        
-        if choice == 'Q':
-            logger.info("已退出")
-            sys.exit(0)
+        # 直接开始并发刷机，不再询问
+        choice = 'A'
     
     # 自动获取设备型号
     device_model = None
