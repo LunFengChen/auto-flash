@@ -359,7 +359,8 @@ class APatchAdapter(RootMethodAdapter):
             return False
         
         try:
-            return device_controller.adb_install(str(self.apk_path))
+            # 直接传 Path 对象，不要转字符串！
+            return device_controller.adb_install(self.apk_path)
         except Exception as e:
             logger.error(f"安装 APatch 失败: {e}")
             return False
@@ -435,7 +436,8 @@ class APatchAdapter(RootMethodAdapter):
             try:
                 # 推送到 /sdcard/Download/
                 device_path = f"/sdcard/Download/{module.name}"
-                if device_controller.adb_push(str(module), device_path):
+                # 直接传 Path 对象，不要转字符串！
+                if device_controller.adb_push(module, device_path):
                     logger.info(f"✅ 模块已推送: {module.name}")
                     success_count += 1
                 else:
@@ -475,7 +477,8 @@ class MagiskAdapter(RootMethodAdapter):
             return False
         
         try:
-            return device_controller.adb_install(str(self.apk_path))
+            # 直接传 Path 对象，不要转字符串！
+            return device_controller.adb_install(self.apk_path)
         except Exception as e:
             logger.error(f"安装 Magisk 失败: {e}")
             return False
