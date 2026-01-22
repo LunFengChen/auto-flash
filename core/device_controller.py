@@ -130,7 +130,6 @@ class DeviceController:
         
         logger.info(f"找到 {len(devices)} 个{'本地' if local_only else ''}设备")
         return devices
-            return []
     
     def __init__(
         self,

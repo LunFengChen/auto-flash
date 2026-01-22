@@ -43,6 +43,22 @@ def setup_logger(log_level: str = "INFO"):
     )
 
 
+def get_device_model(serial: str) -> str:
+    """获取设备型号"""
+    try:
+        result = subprocess.run(
+            ["adb", "-s", serial, "shell", "getprop", "ro.product.device"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception as e:
+        logger.debug(f"获取设备型号失败: {e}")
+    return None
+
+
 def get_connected_devices():
     """获取所有连接的本地设备（包括 ADB 和 Fastboot）"""
     devices = []
@@ -234,11 +250,38 @@ def main():
         logger.info("已退出")
         sys.exit(0)
     
-    # 询问设备型号
-    device_model = input("\n请输入设备型号 (如 redfin): ").strip()
+    # 自动获取设备型号
+    device_model = None
+    selected_devices = []
+    
+    if choice == 'A':
+        # 全部设备
+        selected_devices = devices
+    else:
+        # 单个设备
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(devices):
+                selected_devices = [devices[idx]]
+            else:
+                logger.error("无效的设备序号")
+                sys.exit(1)
+        except ValueError:
+            logger.error("无效的输入")
+            sys.exit(1)
+    
+    # 获取第一个设备的型号（假设所有设备型号相同）
+    logger.info("\n正在获取设备型号...")
+    device_model = get_device_model(selected_devices[0])
+    
     if not device_model:
-        logger.error("设备型号不能为空")
-        sys.exit(1)
+        logger.warning("⚠ 无法自动获取设备型号")
+        device_model = input("请手动输入设备型号 (如 redfin): ").strip()
+        if not device_model:
+            logger.error("设备型号不能为空")
+            sys.exit(1)
+    else:
+        logger.info(f"✓ 检测到设备型号: {device_model}")
     
     # 加载配置验证
     try:
@@ -253,33 +296,24 @@ def main():
     # 执行刷机
     if choice == 'A':
         # 全部设备并发刷机
-        flash_all_devices(device_model, devices)
+        flash_all_devices(device_model, selected_devices)
     else:
         # 单个设备刷机
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(devices):
-                selected_serial = devices[idx]
-                
-                # 检查是否有检查点
-                checkpoint_info = check_device_checkpoint(selected_serial)
-                resume = False
-                
-                if checkpoint_info["has_checkpoint"]:
-                    resume_choice = input(f"\n检测到检查点 (状态: {checkpoint_info['state']})，是否从检查点恢复？(Y/n): ").strip().lower()
-                    resume = resume_choice != 'n'
-                
-                logger.info(f"\n开始刷机: {selected_serial}")
-                if resume:
-                    logger.info(f"从检查点恢复: {checkpoint_info['state']}")
-                
-                flash_single_device(device_model, selected_serial, resume)
-            else:
-                logger.error("无效的设备序号")
-                sys.exit(1)
-        except ValueError:
-            logger.error("无效的输入")
-            sys.exit(1)
+        selected_serial = selected_devices[0]
+        
+        # 检查是否有检查点
+        checkpoint_info = check_device_checkpoint(selected_serial)
+        resume = False
+        
+        if checkpoint_info["has_checkpoint"]:
+            resume_choice = input(f"\n检测到检查点 (状态: {checkpoint_info['state']})，是否从检查点恢复？(Y/n): ").strip().lower()
+            resume = resume_choice != 'n'
+        
+        logger.info(f"\n开始刷机: {selected_serial}")
+        if resume:
+            logger.info(f"从检查点恢复: {checkpoint_info['state']}")
+        
+        flash_single_device(device_model, selected_serial, resume)
 
 
 if __name__ == "__main__":
