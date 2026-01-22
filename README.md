@@ -64,97 +64,46 @@ pip install -r requirements.txt
 
 #### 2. 准备资源
 
-**资源目录结构说明**：
-
 ```bash
-# 通用资源（所有设备共享）
-resources/common/
-├── apks/                       # 通用 APK（会自动安装）
-│   ├── APatch_xxx.apk          # Root 管理器 APK
-│   ├── reqable-app-android-arm64.apk
-│   ├── clashmi_xxx.apk
-│   └── ...
-├── modules/                    # 模块目录（按类型分类）
-│   ├── zip/                    # Magisk/APatch 模块（.zip 格式）
-│   │   ├── LSPosed-v1.9.2-7058-zygisk-release.zip
-│   │   ├── ZygiskNext-1.2.9.1-534-b8e7e21-release.zip
-│   │   ├── MoveCertificate-v1.0.1-xxx-withCert.zip
-│   │   └── zygisk-gadget-xiaojia.zip
-│   ├── lsp/                    # LSPosed 模块（.apk 格式）
-│   │   ├── BlackDex64.apk
-│   │   ├── HideMyApp-V3.6.1.r462.4524dde-release.apk
-│   │   ├── 我不是开发者_1.6.1.apk
-│   │   ├── 截屏录屏绕过.apk
-│   │   └── 算法助手Pro_1.0.9.apk
-│   ├── zygisk/                 # Zygisk 模块（.apk 格式）
-│   │   └── 小佳gadget小工具.apk
-│   └── kpm/                    # KernelPatch 模块（.kpm 格式）
-│       └── (暂无，预留)
-└── tools/                      # 修补工具（Windows 平台）
-    ├── kptools-msys2-0.12.7.exe
-    ├── kpimg-android-0.12.7
-    ├── magiskboot.exe
-    ├── msys-2.0.dll
-    └── msys-z.dll
-
-# 设备特定资源
-resources/devices/redfin/TQ3A.230901.001.C2/
-├── firmware/                   # 原厂固件
-│   ├── boot.img                # 原厂 boot 镜像
-│   ├── bootloader-redfin-r3-0.5-9825705.img
-│   ├── radio-redfin-g7250-00258-230518-b-10157620.img
-│   └── image-redfin-tq3a.230901.001.c2.zip
-└── root/                       # Root 相关文件
-    └── apatch_patched_TQ3A.230901.001.C2_0.12.7.img  # 修补后的 boot.img
-```
-
-**模块安装说明**：
-
-工具会按以下顺序自动安装模块：
-
-1. **安装 zip 模块** (`modules/zip/`)
-   - LSPosed、ZygiskNext、MoveCertificate 等
-   - 通过 APatch 管理器安装
-   - 需要重启生效
-
-2. **安装 LSP 模块 APK** (`modules/lsp/`)
-   - BlackDex64、HideMyApp、算法助手 Pro 等
-   - 通过 `adb install` 安装到系统
-   - 需要在 LSPosed 管理器中激活
-
-3. **安装 Zygisk 模块 APK** (`modules/zygisk/`)
-   - 小佳 gadget 小工具等
-   - 通过 `adb install` 安装到系统
-   - 需要在 Zygisk 管理器中激活
-
-4. **安装 KPM 模块** (`modules/kpm/`)
-   - KernelPatch 模块（如果有）
-   - 通过 KernelPatch 工具安装
-
-**实际例子**（当前配置）：
-
-```bash
-# 1. zip 模块（4 个）
-LSPosed-v1.9.2-7058-zygisk-release.zip          # LSPosed 框架
-ZygiskNext-1.2.9.1-534-b8e7e21-release.zip      # Zygisk 实现
-MoveCertificate-v1.0.1-xxx-withCert.zip         # 证书移动模块
-zygisk-gadget-xiaojia.zip                       # Gadget 工具
-
-# 2. LSP 模块（5 个）
-BlackDex64.apk                                  # 脱壳工具
-HideMyApp-V3.6.1.r462.4524dde-release.apk      # 隐藏应用
-我不是开发者_1.6.1.apk                          # 开发者选项隐藏
-截屏录屏绕过.apk                                # 截屏检测绕过
-算法助手Pro_1.0.9.apk                           # 算法助手
-
-# 3. Zygisk 模块（1 个）
-小佳gadget小工具.apk                            # Gadget 小工具
-
-# 4. 通用 APK（会自动安装到系统）
-reqable-app-android-arm64.apk                   # 抓包工具
-clashmi_xxx.apk                                 # 代理工具
-frida环境检测.apk                               # Frida 检测
-环境检测-by小枫.apk                             # 环境检测
+resources/
+├── common/                     # 通用资源（所有设备共享）
+│   ├── apks/                   # 通用 APK
+│   │   ├── APatch_11182_d52e119_main-debug.apk
+│   │   ├── reqable-app-android-arm64.apk
+│   │   ├── clashmi_1.0.11.150_android_arm64-v8a.apk
+│   │   ├── frida环境检测.apk
+│   │   └── 环境检测-by小枫.apk
+│   ├── modules/
+│   │   ├── zip/                # Magisk/APatch 模块
+│   │   │   ├── LSPosed-v1.9.2-7058-zygisk-release.zip
+│   │   │   ├── ZygiskNext-1.2.9.1-534-b8e7e21-release.zip
+│   │   │   ├── MoveCertificate-v1.0.1-6f37b04-withCert-e4fb11ae-3d521386-243f0bfb.zip
+│   │   │   └── zygisk-gadget-xiaojia.zip
+│   │   ├── lsp/                # LSPosed 模块
+│   │   │   ├── BlackDex64.apk
+│   │   │   ├── HideMyApp-V3.6.1.r462.4524dde-release.apk
+│   │   │   ├── 我不是开发者_1.6.1.apk
+│   │   │   ├── 截屏录屏绕过.apk
+│   │   │   └── 算法助手Pro_1.0.9.apk
+│   │   ├── zygisk/             # Zygisk 模块
+│   │   │   └── 小佳gadget小工具.apk
+│   │   └── kpm/                # KernelPatch 模块
+│   └── tools/                  # 修补工具
+│       ├── kptools-msys2-0.12.7.exe
+│       ├── kpimg-android-0.12.7
+│       ├── magiskboot.exe
+│       ├── msys-2.0.dll
+│       └── msys-z.dll
+└── devices/                    # 设备特定资源
+    └── redfin/
+        └── TQ3A.230901.001.C2/
+            ├── firmware/       # 原厂固件
+            │   ├── boot.img
+            │   ├── bootloader-redfin-r3-0.5-9825705.img
+            │   ├── radio-redfin-g7250-00258-230518-b-10157620.img
+            │   └── image-redfin-tq3a.230901.001.c2.zip
+            └── root/           # Root 相关
+                └── apatch_patched_TQ3A.230901.001.C2_0.12.7.img
 ```
 
 #### 3. 配置
