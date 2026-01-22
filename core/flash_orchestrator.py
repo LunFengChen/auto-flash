@@ -1440,38 +1440,7 @@ class FlashOrchestrator:
                 
                 logger.info(f"模块安装完成: {install_success_count}/{len(modules_to_install)}")
                 
-                # 2. 修改 su 路径为 sx（无论模块是否安装成功都执行）
-                logger.info("修改 su 路径为 sx...")
-                try:
-                    # 使用 tee 命令避免重定向权限问题
-                    result = subprocess.run(
-                        self.device_controller.adb_prefix + ["shell", working_su_method, "-c", "echo sx | tee /data/adb/ap/su_path"],
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    if result.returncode == 0:
-                        logger.info("✓ su 路径已修改为 sx")
-                        # 验证修改是否成功
-                        verify_result = subprocess.run(
-                            self.device_controller.adb_prefix + ["shell", working_su_method, "-c", "cat /data/adb/ap/su_path"],
-                            capture_output=True,
-                            text=True,
-                            timeout=5
-                        )
-                        if verify_result.returncode == 0:
-                            current_path = verify_result.stdout.strip()
-                            logger.info(f"  当前 su 路径: {current_path}")
-                            if current_path != "sx" and current_path != "/system/bin/sx":
-                                logger.warning(f"⚠ su 路径验证失败，期望 'sx'，实际 '{current_path}'")
-                    else:
-                        logger.warning(f"⚠ 修改 su 路径失败，返回码: {result.returncode}")
-                        if result.stderr:
-                            logger.warning(f"  错误: {result.stderr}")
-                except Exception as e:
-                    logger.warning(f"⚠ 修改 su 路径失败: {e}")
-                
-                # 3. 重启设备使模块生效（只有在模块安装成功时才重启）
+                # 2. 重启设备使模块生效（只有在模块安装成功时才重启）
                 if install_success_count > 0:
                     logger.info("=" * 60)
                     logger.info("模块安装完成，重启设备使模块生效...")
