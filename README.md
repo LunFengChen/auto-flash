@@ -43,11 +43,20 @@ pip install -r requirements.txt
 resources/
 ├── common/
 │   ├── apks/
-│   │   ├── APatch_11182_d52e119_main-debug.apk
 │   │   ├── reqable-app-android-arm64.apk
 │   │   ├── clashmi_1.0.11.150_android_arm64-v8a.apk
 │   │   ├── frida环境检测.apk
 │   │   └── 环境检测-by小枫.apk
+│   ├── binary/
+│   │   ├── r0gson.dex
+│   │   ├── r16
+│   │   ├── SoFixer-Linux-32
+│   │   ├── SoFixer-Linux-64
+│   │   └── xj3
+│   ├── root/
+│   │   ├── APatch_11182_d52e119_main-debug.apk
+│   │   ├── KitsuneMagisk-v27.2-kitsune-2.apk
+│   │   └── KitsuneMagisk-v30.6.apk
 │   ├── modules/
 │   │   ├── zip/
 │   │   │   ├── LSPosed-v1.9.2-7058-zygisk-release.zip
