@@ -119,9 +119,10 @@ python main.py
 5. ✋ **手动开启 USB 调试**
 6. ✅ 安装 APatch
 7. ✅ 修补并刷入 boot.img
-8. ✅ 安装 APK 和模块
-9. ✋ **手动打开 APatch 授予权限**（如果是我自己编译的apatch是可以跳过这一步的，具体可看 https://github.com/LunFengChen/Apatch 的actions编译流程）
-10. ✅ 重启生效
+8. ✅ 重启设备
+9. ✋ **手动打开 APatch 触发授权**（激活 root 环境，如果是我自己编译的 apatch 可以跳过这一步，具体可看 https://github.com/LunFengChen/Apatch 的 actions 编译流程）
+10. ✅ 安装 APK 和模块
+11. ✅ 重启生效
 
 ## 其他注意事项
 
