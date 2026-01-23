@@ -1,10 +1,10 @@
 # Android 全自动刷机工具
 
-一个 Android 自动刷机框架，支持多设备并发刷机、断点续传、自动恢复。
+一个 Android 自动刷机简易框架，支持多设备并发刷机、断点续传、自动恢复。
 
 > 为了解决繁琐重复的刷机过程而写，适用于群控刷机和批量改机。
 > 
-> 只适配了 Windows，其他平台自己配置环境变量。
+> 只适配了 Windows，其他平台自己配置环境变量或者修改源码。
 > 
 > 证书嵌入模块参考：https://github.com/LunFengChen/MoveCertificate
 
@@ -25,15 +25,7 @@
 ## 支持设备
 
 - Google Pixel 5 (redfin)
-- 可扩展其他设备
-
-## Root 方案
-
-| 方案 | 状态 |
-|------|------|
-| APatch | ✅ 已支持 |
-| Magisk | 🚧 开发中 |
-| KernelSU | 🚧 开发中 |
+- 可根据真实刷机流程扩展其他设备
 
 ## 快速开始
 
@@ -46,7 +38,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. 准备资源
-
+照着我下面的这个目录结构准备就行，具体内容仅供参考；
 ```bash
 resources/
 ├── common/
@@ -86,7 +78,7 @@ resources/
             │   ├── radio-redfin-g7250-00258-230518-b-10157620.img
             │   └── image-redfin-tq3a.230901.001.c2.zip
             └── root/
-                └── apatch_patched_TQ3A.230901.001.C2_0.12.7.img
+                └── apatch_patched_TQ3A.230901.001.C2_0.12.7.img(如果没有的话就是会自动修补)
 ```
 
 ### 3. 配置
@@ -128,10 +120,10 @@ python main.py
 6. ✅ 安装 APatch
 7. ✅ 修补并刷入 boot.img
 8. ✅ 安装 APK 和模块
-9. ✋ **手动打开 APatch 授予权限**
+9. ✋ **手动打开 APatch 授予权限**（如果是我自己编译的apatch是可以跳过这一步的，具体可看 https://github.com/LunFengChen/Apatch 的actions编译流程）
 10. ✅ 重启生效
 
-## 注意事项
+## 其他注意事项
 
 - 刷机会清空数据，提前备份
 - 必须解锁 Bootloader

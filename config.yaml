@@ -88,12 +88,12 @@ module_install:
   install_zip: true
   
   # LSP 功能（可选，APatch 和 Magisk 都支持）
-  install_lsp: false              # 是否安装 LSP
+  install_lsp: true               # 是否安装 LSP
   lsp_framework: "modules/zip/LSPosed-v1.9.2-7058-zygisk-release.zip"  # LSP 框架
   lsp_modules_dir: "modules/lsp"            # LSP 模块目录
   
   # Zygisk 功能（可选，APatch 和 Magisk 都支持）
-  install_zygisk: false           # 是否安装 Zygisk
+  install_zygisk: true            # 是否安装 Zygisk
   zygisk_modules_dir: "modules/zygisk"      # Zygisk 模块目录
 
 # 二进制工具配置
