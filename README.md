@@ -32,8 +32,8 @@
 ### 1. 安装
 
 ```bash
-git clone https://github.com/yourusername/android-auto-flash.git
-cd android-auto-flash
+git clone https://github.com/LunFengChen/auto-flash.git
+cd auto-flash
 pip install -r requirements.txt
 ```
 
