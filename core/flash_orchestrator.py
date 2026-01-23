@@ -1443,10 +1443,9 @@ class FlashOrchestrator:
                 # 2. 修改 su 路径为 /system/bin/sx（无论模块是否安装成功都执行）
                 logger.info("修改 su 路径为 /system/bin/sx...")
                 try:
-                    # 使用 APatch 的 su 命令（/data/adb/ap/bin/su）
-                    apatch_su = "/data/adb/ap/bin/su"
+                    # 先进入 root shell，再执行重定向（避免权限问题）
                     result = subprocess.run(
-                        self.device_controller.adb_prefix + ["shell", apatch_su, "-c", "echo /system/bin/sx > /data/adb/ap/su_path"],
+                        self.device_controller.adb_prefix + ["shell", "su", "-c", "echo /system/bin/sx > /data/adb/ap/su_path"],
                         capture_output=True,
                         text=True,
                         timeout=10
@@ -1455,7 +1454,7 @@ class FlashOrchestrator:
                         logger.info("✓ su 路径已修改为 /system/bin/sx")
                         # 验证修改是否成功
                         verify_result = subprocess.run(
-                            self.device_controller.adb_prefix + ["shell", apatch_su, "-c", "cat /data/adb/ap/su_path"],
+                            self.device_controller.adb_prefix + ["shell", "su", "-c", "cat /data/adb/ap/su_path"],
                             capture_output=True,
                             text=True,
                             timeout=5
