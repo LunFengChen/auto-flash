@@ -101,7 +101,7 @@ class FlashOrchestrator:
                 self.compatibility_validator = None
                 self.auto_recovery_manager = None
                 self.ui_automation = None
-                self.root_adapter = None
+                self.root_adapter = self._create_root_adapter()
                 self.state_machine = None
                 self.progress_display = None
                 
@@ -186,6 +186,10 @@ class FlashOrchestrator:
                 logger.info("=" * 60)
                 logger.info("设备已在 Bootloader 模式，直接开始刷机")
                 logger.info("=" * 60)
+
+                if not self.device_controller.check_bootloader_status_fastboot():
+                    logger.error("Bootloader 已锁定，请先解锁")
+                    return False
                 
                 # 创建状态机，从刷机步骤开始
                 self._create_state_machine_for_flash_only()
@@ -312,7 +316,12 @@ class FlashOrchestrator:
         
         # UI 自动化（延迟初始化，只在需要时创建）
         self.ui_automation = None
+        self.root_adapter = self._create_root_adapter()
         
+        logger.info("✓ 组件初始化完成")
+
+    def _create_root_adapter(self):
+        """创建 Root 适配器（正常模式和 Fastboot 模式共用）"""
         # Root 适配器 - 从配置文件读取 APK 路径
         try:
             with open(self.config_manager.global_config_path, "r", encoding="utf-8") as f:
@@ -339,7 +348,7 @@ class FlashOrchestrator:
         root_config = {
             "method": self.config_manager.global_config.root_method,
             "apatch": {
-                "apk_path": Path(apk_path),  # 转换为 Path 对象
+                "apk_path": Path(apk_path),
                 "password": self.config_manager.global_config.apatch_password
             },
             "apatch_cli": {
@@ -348,9 +357,7 @@ class FlashOrchestrator:
                 "fallback_to_ui": self.config_manager.global_config.apatch_fallback_to_ui
             }
         }
-        self.root_adapter = RootMethodFactory.create(root_config)
-        
-        logger.info("✓ 组件初始化完成")
+        return RootMethodFactory.create(root_config)
     
     def _validate_configuration(self) -> bool:
         """验证配置"""
@@ -381,10 +388,9 @@ class FlashOrchestrator:
         elif battery < 30:
             logger.warning(f"电池电量较低 ({battery}%)，建议充电")
         
-        # 检查 Bootloader
+        # 检查 Bootloader（ADB 属性在部分设备/系统上可能不可靠，仅作参考）
         if not self.device_controller.check_bootloader_status():
-            logger.error("Bootloader 已锁定，请先解锁")
-            return False
+            logger.warning("ADB 属性显示 Bootloader 已锁定；将在进入 Fastboot 后再次确认")
         
         logger.info("✓ 兼容性验证通过")
         return True
@@ -568,6 +574,9 @@ class FlashOrchestrator:
         timeout = self.config_manager.global_config.fastboot_connect_timeout
         if not self.device_controller.wait_for_fastboot(timeout=timeout):
             raise RuntimeError("Fastboot 连接超时")
+
+        if not self.device_controller.check_bootloader_status_fastboot():
+            raise RuntimeError("Fastboot 检测到 Bootloader 已锁定，请先解锁")
         
         logger.info("✓ 已进入 Bootloader 模式")
         return FlashState.FLASH_SYSTEM
@@ -1041,6 +1050,7 @@ class FlashOrchestrator:
         """处理安装模块状态"""
         logger.info("安装模块...")
         self.progress_display.update(FlashState.INSTALL_MODULES, "安装模块")
+        import shlex
         
         # 1. 先推送 binary 文件到设备（此时 root 已激活）
         logger.info("=" * 60)
@@ -1076,33 +1086,37 @@ class FlashOrchestrator:
                 ]
                 
                 if executable_files:
-                    logger.info("使用 root 权限设置可执行权限...")
-                    
-                    # 尝试多种 su 路径
-                    su_paths = ["/system/xbin/su", "/system/bin/su"]
-                    su_success = False
-                    
-                    for su_path in su_paths:
-                        try:
-                            chmod_cmd = f"chmod 755 {' '.join(executable_files)}"
-                            result = subprocess.run(
-                                self.device_controller.adb_prefix + ["shell", su_path, "-c", chmod_cmd],
-                                capture_output=True,
-                                text=True,
-                                timeout=10
-                            )
-                            
-                            if result.returncode == 0:
-                                logger.info(f"✓ 已设置 {len(executable_files)} 个文件的可执行权限")
-                                su_success = True
-                                break
-                        except Exception as e:
-                            logger.debug(f"su 路径 {su_path} 不可用: {e}")
-                            continue
-                    
-                    if not su_success:
-                        logger.warning("⚠ 无法使用 root 权限设置可执行权限")
-                        logger.warning("  提示：请手动设置或检查 APatch 是否已激活")
+                    root_method = self.config_manager.global_config.root_method
+                    if root_method == "apatch":
+                        logger.info("APatch 模式：将在确认 root 环境后设置 binary 可执行权限...")
+                    else:
+                        logger.info("使用 root 权限设置可执行权限...")
+                        
+                        # 尝试多种 su 路径
+                        su_paths = ["/system/xbin/su", "/system/bin/su"]
+                        su_success = False
+                        
+                        for su_path in su_paths:
+                            try:
+                                chmod_cmd = f"chmod 755 {' '.join(shlex.quote(f) for f in executable_files)}"
+                                result = subprocess.run(
+                                    self.device_controller.adb_prefix + ["shell", su_path, "-c", chmod_cmd],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=10
+                                )
+                                
+                                if result.returncode == 0:
+                                    logger.info(f"✓ 已设置 {len(executable_files)} 个文件的可执行权限")
+                                    su_success = True
+                                    break
+                            except Exception as e:
+                                logger.debug(f"su 路径 {su_path} 不可用: {e}")
+                                continue
+                        
+                        if not su_success:
+                            logger.warning("⚠ 无法使用 root 权限设置可执行权限")
+                            logger.warning("  提示：请手动设置或检查 Root 是否已激活")
             else:
                 logger.info("没有需要推送的 binary 文件")
         else:
@@ -1373,9 +1387,30 @@ class FlashOrchestrator:
                         logger.info("请手动打开 APatch 管理器安装以下模块:")
                         for module in modules_to_install:
                             logger.info(f"  - {module.name}")
-                        logger.info("=" * 60)
-                        return FlashState.COMPLETED
+                            logger.info("=" * 60)
+                            return FlashState.COMPLETED
                 
+                if executable_files:
+                    logger.info("使用已验证的 root 环境设置 binary 可执行权限...")
+                    try:
+                        chmod_cmd = f"chmod 755 {' '.join(shlex.quote(f) for f in executable_files)}"
+                        chmod_result = subprocess.run(
+                            self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(chmod_cmd)}"],
+                            capture_output=True,
+                            text=True,
+                            timeout=10
+                        )
+                        if chmod_result.returncode == 0:
+                            logger.info(f"✓ 已设置 {len(executable_files)} 个 binary 文件的可执行权限")
+                        else:
+                            logger.warning("⚠ binary 可执行权限设置失败")
+                            if chmod_result.stdout:
+                                logger.warning(f"  输出: {chmod_result.stdout}")
+                            if chmod_result.stderr:
+                                logger.warning(f"  错误: {chmod_result.stderr}")
+                    except Exception as e:
+                        logger.warning(f"⚠ binary 可执行权限设置异常: {e}")
+
                 # 检查 APatch CLI 是否存在
                 try:
                     cli_check = subprocess.run(
@@ -1415,14 +1450,17 @@ class FlashOrchestrator:
                 
                 logger.info(f"使用 superkey: {superkey}")
                 
+                import shlex
+
                 # 1. 先安装模块
                 install_success_count = 0
                 for module in modules_to_install:
                     module_path = f"/sdcard/Download/{module.name}"
                     logger.info(f"安装模块: {module.name}")
                     try:
+                        install_cmd = f'/data/adb/ap/bin/apd -s {superkey} module install "{module_path}"'
                         output = subprocess.run(
-                            self.device_controller.adb_prefix + ["shell", working_su_method, "-c", f"/data/adb/ap/bin/apd -s {superkey} module install {module_path}"],
+                            self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(install_cmd)}"],
                             capture_output=True,
                             text=True,
                             timeout=30
@@ -1443,9 +1481,10 @@ class FlashOrchestrator:
                 # 2. 修改 su 路径为 /system/bin/sx（无论模块是否安装成功都执行）
                 logger.info("修改 su 路径为 /system/bin/sx...")
                 try:
-                    # 先进入 root shell，再执行重定向（避免权限问题）
+                    # 使用已验证可用的提权方式执行，避免硬编码 su 导致权限/兼容性问题
+                    set_su_path_cmd = "sh -c 'echo /system/bin/sx > /data/adb/ap/su_path'"
                     result = subprocess.run(
-                        self.device_controller.adb_prefix + ["shell", "su", "-c", "echo /system/bin/sx > /data/adb/ap/su_path"],
+                        self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(set_su_path_cmd)}"],
                         capture_output=True,
                         text=True,
                         timeout=10
@@ -1453,8 +1492,9 @@ class FlashOrchestrator:
                     if result.returncode == 0:
                         logger.info("✓ su 路径已修改为 /system/bin/sx")
                         # 验证修改是否成功
+                        verify_su_path_cmd = "cat /data/adb/ap/su_path"
                         verify_result = subprocess.run(
-                            self.device_controller.adb_prefix + ["shell", "su", "-c", "cat /data/adb/ap/su_path"],
+                            self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(verify_su_path_cmd)}"],
                             capture_output=True,
                             text=True,
                             timeout=5

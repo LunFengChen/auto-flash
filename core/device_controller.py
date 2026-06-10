@@ -370,7 +370,7 @@ class DeviceController:
                 timeout=10
             )
             # 解析输出
-            for line in result.stderr.splitlines():
+            for line in (result.stdout.splitlines() + result.stderr.splitlines()):
                 if var_name in line:
                     return line.split(":")[-1].strip()
             return ""
@@ -556,25 +556,56 @@ class DeviceController:
     
     def check_bootloader_status(self) -> bool:
         """
-        检测 Bootloader 锁定状态
+        通过 ADB 属性检测 Bootloader 锁定状态（仅作参考）
         
         Returns:
-            True=已解锁, False=已锁定
+            True=已解锁或无法确认, False=ADB 明确显示已锁定
         """
         try:
             # adb_shell 已经设置了 capture_output=True
             output = self.adb_shell("getprop ro.boot.flash.locked")
-            is_locked = output.strip() == "1"
+            value = output.strip()
+            is_locked = value == "1"
             
             if is_locked:
-                logger.warning("⚠ Bootloader 已锁定")
+                logger.warning("⚠ ADB 属性显示 Bootloader 已锁定 (ro.boot.flash.locked=1)")
             else:
-                logger.info("✓ Bootloader 已解锁")
+                logger.info("✓ ADB 属性显示 Bootloader 已解锁")
             
             return not is_locked
         except Exception as e:
             logger.warning(f"无法检测 Bootloader 状态: {e}")
             return True  # 默认假设已解锁
+
+    def check_bootloader_status_fastboot(self) -> bool:
+        """
+        通过 Fastboot 变量检测 Bootloader 锁定状态（最终依据）
+        
+        Returns:
+            True=已解锁或无法确认, False=Fastboot 明确显示已锁定
+        """
+        try:
+            unlocked = self.fastboot_getvar("unlocked").strip().lower()
+            if unlocked in ("yes", "true", "1"):
+                logger.info("✓ Fastboot 显示 Bootloader 已解锁")
+                return True
+            if unlocked in ("no", "false", "0"):
+                logger.warning("⚠ Fastboot 显示 Bootloader 已锁定")
+                return False
+
+            device_state = self.fastboot_getvar("device-state").strip().lower()
+            if device_state == "unlocked":
+                logger.info("✓ Fastboot 显示 Bootloader 已解锁 (device-state=unlocked)")
+                return True
+            if device_state == "locked":
+                logger.warning("⚠ Fastboot 显示 Bootloader 已锁定 (device-state=locked)")
+                return False
+
+            logger.warning("无法从 Fastboot 明确判断 Bootloader 状态，将继续后续流程")
+            return True
+        except Exception as e:
+            logger.warning(f"无法通过 Fastboot 检测 Bootloader 状态: {e}")
+            return True
     
     # ==================== 工具方法 ====================
     
