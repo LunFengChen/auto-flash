@@ -49,8 +49,8 @@ root:
   apatch:
     version: "11220"              # APatch 版本号（用于匹配修补后的 boot.img）
     password: "xiaofeng777"       # 默认密码（建议修改）
-    # 自己编译的 APatch（DEFAULT_SUPERKEY=xiaofeng777, AUTO_INSTALL_APATCH=true），
-    # 刷完免手动授权；构建参数见 yamls/apatch.yaml
+    # APatch APK 来自本地仓库 /home/xiaofeng/Desktop/projects/apatch 的构建产物；
+    # sync 脚本会复制到 resources/common/root/，刷完免手动授权。
     apk_path: "root/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
 
   magisk:
@@ -68,7 +68,7 @@ apk_install:
   # 指定后只安装列表中的 APK（不再全装 apks/ 目录）
   extra_apks:
     - "apks/reqable-app-android-arm64.apk"   # Reqable 抓包工具
-    - "apks/appproxy.apk"                    # app-proxy（Flutter 构建，见 yamls/apatch.yaml）
+    - "apks/appproxy.apk"                    # appproxy，从 /home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk 同步
     - "apks/快手.apk"                        # 快手
 
 # 模块安装配置

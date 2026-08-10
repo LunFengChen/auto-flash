@@ -1,16 +1,49 @@
 #!/usr/bin/env bash
 # 同步 APatch 本地 fork：拉取 gh 新版 + 合并上游 bmax121/APatch
-# 用法: bash scripts/sync-apatch.sh [--build] [--push]
-#   --build  合并后重新编译 APK 并复制到 resources/common/root/
+# 用法: bash scripts/sync-apatch.sh [--build] [--copy] [--push]
+#   --build  合并后重新编译 APK
+#   --copy   复制 APatch 本地构建产物到 auto-flash/resources/common/root/
 #   --push   合并完成后 push 到自己的 GitHub fork
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUTO_FLASH_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO="${APATCH_REPO:-/home/xiaofeng/Desktop/projects/apatch}"
 BRANCH="${APATCH_BRANCH:-feature/rom-root-grants}"
 UPSTREAM_BRANCH="main"
 COMMIT_MSG="${APATCH_COMMIT_MSG:-merge: 合并上游 bmax121/APatch main}"
 
+DO_PUSH=false
+DO_BUILD=false
+DO_COPY=false
+for arg in "$@"; do
+  case "$arg" in
+    --push) DO_PUSH=true ;;
+    --build) DO_BUILD=true; DO_COPY=true ;;
+    --copy) DO_COPY=true ;;
+  esac
+done
+
+copy_apk() {
+  echo "==> 复制 APatch 仓库构建产物到 auto-flash 资源目录"
+  APK=$(find app/build/outputs/apk -type f -name '*debug.apk' -print | sort | tail -n 1)
+  if [ -z "$APK" ]; then
+    echo "!! 没找到 APatch debug APK，请先加 --build" >&2
+    exit 1
+  fi
+  DEST="$AUTO_FLASH_ROOT/resources/common/root"
+  mkdir -p "$DEST"
+  cp -v "$APK" "$DEST/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"
+}
+
 cd "$REPO"
+
+# 只复制本地 APatch 构建产物时，不做网络同步。
+if [ "$DO_COPY" = true ] && [ "$DO_BUILD" = false ] && [ "$DO_PUSH" = false ]; then
+  copy_apk
+  echo "==> 完成: $(git log --oneline -1)"
+  exit 0
+fi
 
 echo "==> 确保在分支 $BRANCH 且工作区干净"
 if ! git rev-parse --verify -q "$BRANCH" >/dev/null; then
@@ -39,23 +72,20 @@ else
   exit 1
 fi
 
-if [ "${1:-}" = "--push" ] || [ "${2:-}" = "--push" ]; then
+if [ "$DO_PUSH" = true ]; then
   echo "==> push 到 origin/$BRANCH"
   git push origin "$BRANCH"
 fi
 
-if [ "${1:-}" = "--build" ] || [ "${2:-}" = "--build" ]; then
+if [ "$DO_BUILD" = true ]; then
   echo "==> 编译 APK（DEFAULT_SUPERKEY=xiaofeng777, AUTO_INSTALL_APATCH=true）"
   ./gradlew :app:assembleDebug :app:assembleRelease \
     -PDEFAULT_SUPERKEY=xiaofeng777 \
     -PAUTO_INSTALL_APATCH=true
-  COMMIT=$(git rev-parse --short HEAD)
-  VERSION=$(git describe --always --tags 2>/dev/null || echo "$COMMIT")
-  DEST="$(cd "$(dirname "$0")/.." && pwd)/resources/common/root"
-  mkdir -p "$DEST"
-  cp -v app/build/outputs/apk/debug/app-debug.apk \
-    "$DEST/APatch_${VERSION}_${COMMIT}_feature-rom-root-grants-debug.apk"
-  echo "==> 记得更新 yamls/pixel5.yaml 的 root.apatch.apk_path 为新的文件名"
+fi
+
+if [ "$DO_COPY" = true ]; then
+  copy_apk
 fi
 
 echo "==> 完成: $(git log --oneline -1)"

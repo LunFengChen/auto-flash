@@ -31,13 +31,23 @@ python -m core.tool_installer_cli --binary-only --config-dir yamls --config pixe
 python -m core.tool_installer_cli --module-only --config-dir yamls --config pixel5.yaml
 ```
 
-同步 APatch fork 并合并上游（推送到自己的 GitHub + 重新编译 APK）：
+同步 APatch fork 并合并上游（APatch APK 来自本地仓库 `/home/xiaofeng/Desktop/projects/apatch`）：
 
 ```bash
 bash scripts/sync-apatch.sh          # 拉 origin + 合并 upstream/main
 bash scripts/sync-apatch.sh --push   # 合并后 push 到 GitHub
-bash scripts/sync-apatch.sh --build  # 合并后重新编译 APK 到 resources/common/root/
+bash scripts/sync-apatch.sh --copy   # 复制 APatch 仓库已有 APK 到 resources/common/root/
+bash scripts/sync-apatch.sh --build  # 重新编译并复制 APatch APK 到 resources/common/root/
 ```
+
+同步桌面 reverse 里的工具/APK/模块资源：
+
+```bash
+bash scripts/sync-reverse-resources.sh
+```
+
+当前映射：`reverse/tools/app-arm64-v8a-release.apk` -> `resources/common/apks/appproxy.apk`，
+`reverse/devices/auto-flash/resources/common/...` -> reqable、xj-server-v3、带 Reqable 证书的 MoveCertificate 模块和刷机工具。
 
 不传参数时保持旧行为，默认读取根目录 `config.yaml`。
 

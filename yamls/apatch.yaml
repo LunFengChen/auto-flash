@@ -18,15 +18,21 @@ build:
     -PDEFAULT_SUPERKEY=xiaofeng777
     -PAUTO_INSTALL_APATCH=true
   apk_name: "APatch_{version}_{commit}_feature-rom-root-grants-debug.apk"
-  apk_output: "app/build/outputs/apk/debug/app-debug.apk"
-  apk_dest: "resources/common/root/"   # 复制到 auto-flash 资源目录
+  # APatch 仓库当前实际输出目录：app/build/outputs/apk/debug/APatch_11220_39ba3bb_feature/
+  apk_output: "app/build/outputs/apk/debug/APatch_11220_39ba3bb_feature/rom-root-grants-debug.apk"
+  apk_dest: "/home/xiaofeng/Desktop/projects/auto-flash/resources/common/root/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"
 
-# 常用工具 APK 来源
-apks:
-  reqable: "https://reqable.com/zh-CN/download/"   # reqable-app-android-arm64.apk
-  appproxy: "https://github.com/LunFengChen/app-proxy"  # Flutter 工程，需本地构建:
-    # cd app-proxy && flutter build apk && cp build/app/outputs/flutter-apk/app-release.apk auto-flash/resources/common/apks/appproxy.apk
-  kuaishou: "/home/xiaofeng/Downloads/快手.apk"     # 已复制到 resources/common/apks/快手.apk
+# 本地资源来源：工具和常用 APK 直接从桌面 reverse 拿
+resource_sources:
+  reverse_root: "/home/xiaofeng/Desktop/reverse"
+  reverse_auto_flash: "/home/xiaofeng/Desktop/reverse/devices/auto-flash"
+  sync_script: "scripts/sync-reverse-resources.sh"
+  apatch_apk_prefer: "/home/xiaofeng/Desktop/projects/apatch/app/build/outputs/apk/debug/APatch_11220_39ba3bb_feature/rom-root-grants-debug.apk"
+  reqable: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/apks/reqable-app-android-arm64.apk"
+  appproxy: "/home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk"  # package: cn.ys1231.appproxy, versionName: v0.2.7
+  kuaishou: "/home/xiaofeng/Downloads/快手.apk"
+  xj_server_v3: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/binary/xj-server-v3"
+  movecert_reqable: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/modules/zip/MoveCertificate-v1.0.1-withReqable-d8e119df.zip"
 
 # 设备已安装清单（刷机后应包含）
 install:
