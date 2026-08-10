@@ -1,0 +1,40 @@
+# APatch 本地 fork 同步/构建配置
+# 配套脚本: scripts/sync-apatch.sh
+repo:
+  local: "/home/xiaofeng/Desktop/projects/apatch"   # 本地 fork 仓库
+  origin: "git@github.com:LunFengChen/APatch.git"   # 自己的 GitHub fork（gh 新版）
+  upstream: "https://github.com/bmax121/APatch.git" # 上游官方仓库
+  branch: "feature/rom-root-grants"                 # fork 工作分支
+
+merge:
+  upstream_branch: "main"
+  strategy: "merge"        # merge / rebase
+  commit_msg: "merge: 合并上游 bmax121/APatch main"
+
+build:
+  # 自己编译的 APatch：内嵌 superkey + 刷完自动授权，免手动打开授权
+  gradle_args: >
+    ./gradlew :app:assembleDebug :app:assembleRelease
+    -PDEFAULT_SUPERKEY=xiaofeng777
+    -PAUTO_INSTALL_APATCH=true
+  apk_name: "APatch_{version}_{commit}_feature-rom-root-grants-debug.apk"
+  apk_output: "app/build/outputs/apk/debug/app-debug.apk"
+  apk_dest: "resources/common/root/"   # 复制到 auto-flash 资源目录
+
+# 常用工具 APK 来源
+apks:
+  reqable: "https://reqable.com/zh-CN/download/"   # reqable-app-android-arm64.apk
+  appproxy: "https://github.com/LunFengChen/app-proxy"  # Flutter 工程，需本地构建:
+    # cd app-proxy && flutter build apk && cp build/app/outputs/flutter-apk/app-release.apk auto-flash/resources/common/apks/appproxy.apk
+  kuaishou: "/home/xiaofeng/Downloads/快手.apk"     # 已复制到 resources/common/apks/快手.apk
+
+# 设备已安装清单（刷机后应包含）
+install:
+  apk:
+    - "reqable-app-android-arm64.apk"   # Reqable 抓包工具
+    - "appproxy.apk"                    # app-proxy VPN 代理
+    - "快手.apk"                        # 快手
+  binary:
+    - "xj-server-v3"                    # /data/local/tmp/xj-server-v3
+  module:
+    - "MoveCertificate-v1.0.1-withReqable-d8e119df.zip"  # 带 Reqable 证书的 movecert 模块

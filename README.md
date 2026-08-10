@@ -8,6 +8,39 @@
 > 
 > 证书嵌入模块参考：https://github.com/LunFengChen/MoveCertificate
 
+
+## yamls 配置目录
+
+刷机配置统一放在 `yamls/` 下，按设备/用途拆分配置文件：
+
+| 文件 | 用途 |
+| --- | --- |
+| `yamls/pixel5.yaml` | Pixel 5 (redfin) APatch 刷机配置（含 reqable、appproxy、快手、xj-server-v3、带 Reqable 证书的 MoveCertificate 模块） |
+| `yamls/apatch.yaml` | APatch 本地 fork 同步/构建参数（拉 gh 新版 + 合并上游 bmax121/APatch） |
+
+使用 yamls 配置运行：
+
+```bash
+# 刷机
+python main.py --config-dir yamls --config pixel5.yaml
+
+# 只安装 APK / 二进制 / 模块
+python -m core.tool_installer_cli --config-dir yamls --config pixel5.yaml
+python -m core.tool_installer_cli --apk-only --config-dir yamls --config pixel5.yaml
+python -m core.tool_installer_cli --binary-only --config-dir yamls --config pixel5.yaml
+python -m core.tool_installer_cli --module-only --config-dir yamls --config pixel5.yaml
+```
+
+同步 APatch fork 并合并上游（推送到自己的 GitHub + 重新编译 APK）：
+
+```bash
+bash scripts/sync-apatch.sh          # 拉 origin + 合并 upstream/main
+bash scripts/sync-apatch.sh --push   # 合并后 push 到 GitHub
+bash scripts/sync-apatch.sh --build  # 合并后重新编译 APK 到 resources/common/root/
+```
+
+不传参数时保持旧行为，默认读取根目录 `config.yaml`。
+
 ## 功能
 
 **已实现** ✅

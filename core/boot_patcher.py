@@ -97,8 +97,11 @@ class BootPatcher:
         # 实际使用的 kpimg 版本（用于命名）
         self.kpimg_version = config.kpimg_version if config.kpimg_version else self._detect_kpimg_version()
         
-        # Validate tools
-        self._validate_tools()
+        # 已有设备专用 patched boot 时，直接复用，不要求本机具备重新修补工具。
+        # 这样 Linux 环境可以使用仓库随设备保存的成品镜像，只有确实需要新修补时
+        # 才校验 magiskboot/kptools/kpimg。
+        if not self._find_existing_patched_boot():
+            self._validate_tools()
     
     def _validate_tools(self):
         """Validate required tools exist"""
