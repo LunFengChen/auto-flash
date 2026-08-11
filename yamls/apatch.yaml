@@ -14,20 +14,21 @@ merge:
 build:
   # 自己编译的 APatch：内嵌 superkey + 刷完自动授权，免手动打开授权
   gradle_args: >
-    ./gradlew :app:assembleDebug :app:assembleRelease
+    ./gradlew :app:assembleDebug
     -PDEFAULT_SUPERKEY=xiaofeng777
     -PAUTO_INSTALL_APATCH=true
-  apk_name: "APatch_{version}_{commit}_feature-rom-root-grants-debug.apk"
-  # APatch 仓库当前实际输出目录：app/build/outputs/apk/debug/APatch_11220_39ba3bb_feature/
-  apk_output: "app/build/outputs/apk/debug/APatch_11220_39ba3bb_feature/rom-root-grants-debug.apk"
-  apk_dest: "/home/xiaofeng/Desktop/projects/auto-flash/resources/common/root/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"
+    -x downloadJailbreakKo
+  apk_name: "APatch_{version}_{commit}_{branch}-rom-root-grants-debug.apk"
+  # APatch 仓库当前实际输出目录：app/build/outputs/apk/debug/APatch_11232_66be29d_feature/
+  apk_output: "app/build/outputs/apk/debug/APatch_11232_66be29d_feature/rom-root-grants-debug.apk"
+  apk_dest: "/home/xiaofeng/Desktop/projects/auto-flash/resources/common/root/APatch_11232_66be29d_feature-rom-root-grants-debug.apk"
 
 # 本地资源来源：工具和常用 APK 直接从桌面 reverse 拿
 resource_sources:
   reverse_root: "/home/xiaofeng/Desktop/reverse"
   reverse_auto_flash: "/home/xiaofeng/Desktop/reverse/devices/auto-flash"
   sync_script: "scripts/sync-reverse-resources.sh"
-  apatch_apk_prefer: "/home/xiaofeng/Desktop/projects/apatch/app/build/outputs/apk/debug/APatch_11220_39ba3bb_feature/rom-root-grants-debug.apk"
+  apatch_apk_prefer: "/home/xiaofeng/Desktop/projects/apatch/app/build/outputs/apk/debug/APatch_11232_66be29d_feature/rom-root-grants-debug.apk"
   reqable: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/apks/reqable-app-android-arm64.apk"
   appproxy: "/home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk"  # package: cn.ys1231.appproxy, versionName: v0.2.7
   kuaishou: "/home/xiaofeng/Downloads/快手.apk"

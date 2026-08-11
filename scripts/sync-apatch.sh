@@ -33,7 +33,11 @@ copy_apk() {
   fi
   DEST="$AUTO_FLASH_ROOT/resources/common/root"
   mkdir -p "$DEST"
-  cp -v "$APK" "$DEST/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"
+  APK_DIR="$(basename "$(dirname "$APK")")"
+  APK_NAME="$(basename "$APK")"
+  DEST_NAME="${APK_DIR}-${APK_NAME}"
+  cp -v "$APK" "$DEST/$DEST_NAME"
+  echo "==> APK path: resources/common/root/$DEST_NAME"
 }
 
 cd "$REPO"
@@ -79,9 +83,10 @@ fi
 
 if [ "$DO_BUILD" = true ]; then
   echo "==> 编译 APK（DEFAULT_SUPERKEY=xiaofeng777, AUTO_INSTALL_APATCH=true）"
-  ./gradlew :app:assembleDebug :app:assembleRelease \
+  ./gradlew :app:assembleDebug \
     -PDEFAULT_SUPERKEY=xiaofeng777 \
-    -PAUTO_INSTALL_APATCH=true
+    -PAUTO_INSTALL_APATCH=true \
+    -x downloadJailbreakKo
 fi
 
 if [ "$DO_COPY" = true ]; then
