@@ -11,6 +11,20 @@ from dataclasses import dataclass, field
 from loguru import logger
 
 
+# ROM 清单默认文件（向后兼容），随机抽 ROM / 自动下载时读取
+# 实际按设备型号取 yamls/{model}-roms.yaml，见 rom_inventory_path()
+ROM_INVENTORY_PATH = Path("yamls/redfin-roms.yaml")
+
+
+def rom_inventory_path(model: Optional[str] = None) -> Path:
+    """按设备型号返回 ROM 清单路径（yamls/{model}-roms.yaml），不存在则回退默认清单"""
+    if model:
+        p = Path(f"yamls/{model}-roms.yaml")
+        if p.exists():
+            return p
+    return ROM_INVENTORY_PATH
+
+
 @dataclass
 class GlobalConfig:
     """全局配置"""
@@ -43,6 +57,8 @@ class GlobalConfig:
     install_modules: bool = True
     dry_run: bool = False
     no_color: bool = False
+    random_rom: bool = False
+    auto_download_rom: bool = False
     
     # 批量刷机
     batch_enabled: bool = False
@@ -157,6 +173,8 @@ class ConfigManager:
                 config.install_modules = features.get("install_modules", config.install_modules)
                 config.dry_run = features.get("dry_run", config.dry_run)
                 config.no_color = features.get("no_color", config.no_color)
+                config.random_rom = features.get("random_rom", config.random_rom)
+                config.auto_download_rom = features.get("auto_download_rom", config.auto_download_rom)
             
             # Root 配置
             if "root" in data:
@@ -252,25 +270,46 @@ class ConfigManager:
         
         # 验证设备配置
         if self.device_config:
-            # 检查 build_id
-            if not self.device_config.build_id:
-                errors.append("设备配置缺少 build_id")
-            
-            # 检查资源目录
-            if self.device_config.build_id:
-                device_resources = Path("resources/devices") / self.device_config.model / self.device_config.build_id
-                if not device_resources.exists():
-                    errors.append(f"设备资源目录不存在: {device_resources}")
+            if self.global_config.random_rom:
+                # 随机 ROM 模式：build_id 只是默认候选，跳过具体目录校验。
+                # 校验本机至少有一套可用 ROM，或允许下载且清单存在（刷机时自动下载补齐）
+                builds_dir = Path("resources/devices") / self.device_config.model
+                complete_builds = []
+                if builds_dir.exists():
+                    for build_dir in builds_dir.iterdir():
+                        if build_dir.is_dir() and not build_dir.name.startswith('.'):
+                            firmware_dir = build_dir / "firmware"
+                            if firmware_dir.exists() and list(firmware_dir.glob("image-*.zip")):
+                                complete_builds.append(build_dir)
+                can_download = self.global_config.auto_download_rom and rom_inventory_path(self.device_config.model).exists()
+                if not complete_builds and not can_download:
+                    errors.append(
+                        f"随机 ROM 模式：本机无可用 ROM 包（需含 firmware/image-*.zip）且未开启自动下载: {builds_dir}"
+                    )
+                elif complete_builds:
+                    logger.info(f"随机 ROM 模式：本机已有 ROM {len(complete_builds)} 套: {[b.name for b in complete_builds]}")
                 else:
-                    # 检查 firmware 目录
-                    firmware_dir = device_resources / "firmware"
-                    if not firmware_dir.exists():
-                        errors.append(f"固件目录不存在: {firmware_dir}")
-                    
-                    # 检查 root 目录
-                    root_dir = device_resources / "root"
-                    if not root_dir.exists():
-                        logger.warning(f"Root 目录不存在（将自动创建）: {root_dir}")
+                    logger.info("随机 ROM 模式：本机暂无 ROM，auto_download_rom 已开启，将从清单随机下载")
+            else:
+                # 检查 build_id
+                if not self.device_config.build_id:
+                    errors.append("设备配置缺少 build_id")
+
+                # 检查资源目录
+                if self.device_config.build_id:
+                    device_resources = Path("resources/devices") / self.device_config.model / self.device_config.build_id
+                    if not device_resources.exists():
+                        errors.append(f"设备资源目录不存在: {device_resources}")
+                    else:
+                        # 检查 firmware 目录
+                        firmware_dir = device_resources / "firmware"
+                        if not firmware_dir.exists():
+                            errors.append(f"固件目录不存在: {firmware_dir}")
+
+                        # 检查 root 目录
+                        root_dir = device_resources / "root"
+                        if not root_dir.exists():
+                            logger.warning(f"Root 目录不存在（将自动创建）: {root_dir}")
             
             # 检查 boot.img
             if self.device_config.boot_img_source == "provided":

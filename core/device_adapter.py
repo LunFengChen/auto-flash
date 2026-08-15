@@ -124,11 +124,20 @@ class Pixel8Adapter(PixelAdapter):
         super().__init__("shiba", language)
 
 
+class Pixel3Adapter(PixelAdapter):
+    """Pixel 3 专用适配器"""
+
+    def __init__(self, language: str = "zh_CN"):
+        super().__init__("blueline", language)
+
+
 class DeviceAdapterFactory:
     """设备适配器工厂"""
     
     # 友好名称到代号的映射
     MODEL_ALIASES = {
+        "pixel3": "blueline",
+        "pixel3xl": "crosshatch",
         "pixel5": "redfin",
         "pixel5a": "barbet",
         "pixel6": "oriole",
@@ -143,6 +152,8 @@ class DeviceAdapterFactory:
     
     # 设备型号到适配器的映射
     ADAPTERS = {
+        "blueline": Pixel3Adapter,     # Pixel 3
+        "crosshatch": Pixel3Adapter,   # Pixel 3 XL
         "redfin": Pixel5Adapter,      # Pixel 5
         "barbet": Pixel5Adapter,       # Pixel 5a
         "oriole": PixelAdapter,        # Pixel 6

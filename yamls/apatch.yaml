@@ -1,0 +1,47 @@
+# APatch 本地 fork 同步/构建配置
+# 配套脚本: scripts/sync-apatch.sh
+repo:
+  local: "/home/xiaofeng/Desktop/projects/apatch"   # 本地 fork 仓库
+  origin: "git@github.com:LunFengChen/APatch.git"   # 自己的 GitHub fork（gh 新版）
+  upstream: "https://github.com/bmax121/APatch.git" # 上游官方仓库
+  branch: "feature/rom-root-grants"                 # fork 工作分支
+
+merge:
+  upstream_branch: "main"
+  strategy: "merge"        # merge / rebase
+  commit_msg: "merge: 合并上游 bmax121/APatch main"
+
+build:
+  # 自己编译的 APatch：内嵌 superkey + 刷完自动授权，免手动打开授权
+  gradle_args: >
+    ./gradlew :app:assembleDebug
+    -PDEFAULT_SUPERKEY=xiaofeng777
+    -PAUTO_INSTALL_APATCH=true
+    -x downloadJailbreakKo
+  apk_name: "APatch_{version}_{commit}_{branch}-rom-root-grants-debug.apk"
+  # APatch 仓库当前实际输出目录：app/build/outputs/apk/debug/APatch_11232_66be29d_feature/
+  apk_output: "app/build/outputs/apk/debug/APatch_11232_66be29d_feature/rom-root-grants-debug.apk"
+  apk_dest: "/home/xiaofeng/Desktop/projects/auto-flash/resources/common/root/APatch_11232_66be29d_feature-rom-root-grants-debug.apk"
+
+# 本地资源来源：工具和常用 APK 直接从桌面 reverse 拿
+resource_sources:
+  reverse_root: "/home/xiaofeng/Desktop/reverse"
+  reverse_auto_flash: "/home/xiaofeng/Desktop/reverse/devices/auto-flash"
+  sync_script: "scripts/sync-reverse-resources.sh"
+  apatch_apk_prefer: "/home/xiaofeng/Desktop/projects/apatch/app/build/outputs/apk/debug/APatch_11232_66be29d_feature/rom-root-grants-debug.apk"
+  reqable: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/apks/reqable-app-android-arm64.apk"
+  appproxy: "/home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk"  # package: cn.ys1231.appproxy, versionName: v0.2.7
+  kuaishou: "/home/xiaofeng/Downloads/快手.apk"
+  xj_server_v3: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/binary/xj-server-v3"
+  movecert_reqable: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/modules/zip/MoveCertificate-v1.0.1-withReqable-d8e119df.zip"
+
+# 设备已安装清单（刷机后应包含）
+install:
+  apk:
+    - "reqable-app-android-arm64.apk"   # Reqable 抓包工具
+    - "appproxy.apk"                    # app-proxy VPN 代理
+    - "快手.apk"                        # 快手
+  binary:
+    - "xj-server-v3"                    # /data/local/tmp/xj-server-v3
+  module:
+    - "MoveCertificate-v1.0.1-withReqable-d8e119df.zip"  # 带 Reqable 证书的 movecert 模块

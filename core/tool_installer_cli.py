@@ -10,6 +10,7 @@
 """
 
 from pathlib import Path
+import yaml
 from loguru import logger
 
 from .device_controller import DeviceController
@@ -25,7 +26,8 @@ def main():
     parser.add_argument("--apk-only", action="store_true", help="只安装 APK")
     parser.add_argument("--binary-only", action="store_true", help="只推送 Binary")
     parser.add_argument("--module-only", action="store_true", help="只推送 Modules")
-    parser.add_argument("--config", default="config.yaml", help="配置文件路径")
+    parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls）")
+    parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml）")
     
     args = parser.parse_args()
     
@@ -43,8 +45,9 @@ def main():
     
     try:
         # 加载配置
+        config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
         config_manager = ConfigManager(
-            global_config_path=Path(args.config),
+            global_config_path=config_path,
             device_model="redfin"  # 这里可以改成从参数读取
         )
         
@@ -74,7 +77,7 @@ def main():
         # 安装 APK
         if install_apk:
             # 从 config.yaml 读取 apk_install 配置
-            with open(args.config, 'r', encoding='utf-8') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 config_data = yaml.safe_load(f)
             
             apk_config = config_data.get("apk_install", {})
@@ -92,7 +95,7 @@ def main():
         # 推送二进制工具
         if install_binary:
             # 从 config.yaml 读取 binary 配置
-            with open(args.config, 'r', encoding='utf-8') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 config_data = yaml.safe_load(f)
             
             binary_config = config_data.get("binary", {})
@@ -107,7 +110,7 @@ def main():
         # 推送并安装模块
         if install_module:
             # 从 config.yaml 读取 module_install 配置
-            with open(args.config, 'r', encoding='utf-8') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 config_data = yaml.safe_load(f)
             
             module_config = config_data.get("module_install", {})

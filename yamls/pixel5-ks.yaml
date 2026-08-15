@@ -1,16 +1,18 @@
-# Android 全自动刷机工具 - 全局配置
+# Pixel 5 (redfin) 自动刷机配置 - APatch + 常用工具
+# 用法: python main.py --config-dir yamls --config pixel5-ks.yaml
+# ROM 策略: random_rom=true 时每次随机抽一套 resources/devices/redfin/ 下的 ROM（系统镜像、boot 补丁、root 均取自同一套）
 
 # 全局设置
 global:
   log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
   max_retries: 3
   default_timeout: 30  # 秒
-  
+
   # ADB/Fastboot 配置
   adb_path: "adb"       # 默认使用环境变量中的 adb，也可以指定完整路径
   fastboot_path: "fastboot"  # 默认使用环境变量中的 fastboot，也可以指定完整路径
-  
-  # 通用资源路径
+
+  # 通用资源路径（相对项目根目录）
   common_resources:
     apks: "resources/common/apks"
     modules: "resources/common/modules"
@@ -34,8 +36,8 @@ features:
   install_modules: true           # 是否安装模块
   dry_run: false                  # 只打印操作，不执行
   no_color: false                 # 禁用彩色输出
-  random_rom: false               # 随机抽一套 ROM 刷（true 时忽略 build_id，随机选一套完整的 build 目录）
-  auto_download_rom: false        # 随机抽中的 ROM 本机缺失时，从 yamls/redfin-roms.yaml 清单自动下载并解压到 firmware/
+  random_rom: false                # 随机抽一套 ROM 刷（true 时忽略 build_id，随机选一套完整的 build 目录）
+  auto_download_rom: true          # 随机抽中的 ROM 本机缺失时，从 yamls/redfin-roms.yaml 清单自动下载并解压到 firmware/
 
 # 批量刷机配置
 batch:
@@ -46,12 +48,14 @@ batch:
 # Root 方案配置
 root:
   method: "apatch"                # apatch, magisk, kernelsu, none
-  
+
   apatch:
-    version: "11220"              # APatch 版本号（用于匹配修补后的 boot.img）
+    version: "11232"              # APatch 版本号（用于匹配修补后的 boot.img）
     password: "xiaofeng777"       # 默认密码（建议修改）
-    apk_path: "root/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
-  
+    # APatch APK 来自本地仓库 /home/xiaofeng/Desktop/projects/apatch 的构建产物；
+    # sync 脚本会复制到 resources/common/root/，刷完免手动授权。
+    apk_path: "root/APatch_11232_66be29d_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
+
   magisk:
     version: "30600"              # Magisk 版本号（用于匹配修补后的 boot.img）
     apk_path: "root/KitsuneMagisk-v30.6.apk"  # Magisk APK 相对于 resources/common/
@@ -59,59 +63,62 @@ root:
 # APK 安装配置
 apk_install:
   # 策略：Root APK + common/apks/ 下的所有 APK + 额外指定的 APK
-  
+
   # 是否自动安装 Root 方案的 APK
   install_root_apk: true
-  
+
   # 额外的 APK 列表（相对于 resources/common/）
-  # 示例: ["custom/my_app.apk", "tools/another_app.apk"]
-  extra_apks: []
+  # 指定后只安装列表中的 APK（不再全装 apks/ 目录）
+  extra_apks:
+    - "apks/reqable-app-android-arm64.apk"   # Reqable 抓包工具
+    - "apks/appproxy.apk"                    # appproxy，从 /home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk 同步
+    - "apks/快手.apk"                        # 快手
 
 # 模块安装配置
 module_install:
   # 策略：
   # 1. 推送 common/modules/zip/ 下的所有 ZIP 到设备
   # 2. 使用 Root 管理器 CLI 自动安装
-  
+
   # 是否启用模块安装
   enabled: true
-  
+
   # 模块安装方式
   # "cli" - 使用 Root 管理器 CLI 自动安装
   # "manual" - 只推送到设备，提示用户手动安装
   install_method: "cli"
-  
+
   # 模块配置（APatch 和 Magisk 通用）
   # KPM 内核模块（仅 APatch 支持）
   install_kpm: false
   kpm_dir: "modules/kpm"
-  
+
   # ZIP 通用模块（APatch 和 Magisk 都支持）
   install_zip: true
-  
+
   # LSP 功能（可选，APatch 和 Magisk 都支持）
-  install_lsp: true               # 是否安装 LSP
+  install_lsp: false              # 是否安装 LSP
   lsp_framework: "modules/zip/LSPosed-v1.9.2-7058-zygisk-release.zip"  # LSP 框架
   lsp_modules_dir: "modules/lsp"            # LSP 模块目录
-  
+
   # Zygisk 功能（可选，APatch 和 Magisk 都支持）
-  install_zygisk: true            # 是否安装 Zygisk
+  install_zygisk: false           # 是否安装 Zygisk
   zygisk_modules_dir: "modules/zygisk"      # Zygisk 模块目录
 
 # 二进制工具配置
 binary:
   # 策略：common/binary/ 下的所有文件 - 全推
   # 无需配置列表，自动扫描推送
-  
+
   # 是否启用二进制工具推送
   enabled: true
-  
+
   # 推送目标目录
   target_dir: "/data/local/tmp"
-  
+
   # 是否设置可执行权限
   set_executable: true
-  
+
   # 生命周期：持久化保留（不清理）
   cleanup_after_flash: false
 
@@ -132,7 +139,7 @@ devices:
     codename: "redfin"
     display_name: "Google Pixel 5"
     brand: "google"
-    android_version: 13
-    build_id: "TP1A.221105.002"
+    android_version: 11
+    build_id: "RQ1D.210205.004"
     superkey: "xiaofeng777"
     boot_img_source: "extract"  # extract, provided, patched

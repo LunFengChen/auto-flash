@@ -164,12 +164,13 @@ def display_device_menu(devices: list):
     print("=" * 60)
 
 
-def flash_single_device(device_model: str, device_serial: str, resume: bool = False):
+def flash_single_device(device_model: str, device_serial: str, resume: bool = False,
+                          config_path: Path = Path("config.yaml")):
     """刷机单个设备"""
     try:
         orchestrator = FlashOrchestrator(
             device_model=device_model,
-            config_path=Path("config.yaml"),
+            config_path=config_path,
             resume=resume,
             boot_only=False,
             dry_run=False,
@@ -198,7 +199,7 @@ def flash_single_device(device_model: str, device_serial: str, resume: bool = Fa
         return False
 
 
-def flash_all_devices(device_model: str, devices: list):
+def flash_all_devices(device_model: str, devices: list, config_path: Path = Path("config.yaml")):
     """并发刷机所有设备"""
     import threading
     import time
@@ -208,7 +209,7 @@ def flash_all_devices(device_model: str, devices: list):
     results = {}
     threads = []
     
-    def flash_thread(serial):
+    def flash_thread(serial, config_path):
         # 检查是否有检查点
         checkpoint_info = check_device_checkpoint(serial)
         resume = checkpoint_info["has_checkpoint"]
@@ -216,11 +217,11 @@ def flash_all_devices(device_model: str, devices: list):
         if resume:
             logger.info(f"[{serial}] 从检查点恢复: {checkpoint_info['state']}")
         
-        results[serial] = flash_single_device(device_model, serial, resume)
+        results[serial] = flash_single_device(device_model, serial, resume, config_path)
     
     # 创建线程
     for serial in devices:
-        thread = threading.Thread(target=flash_thread, args=(serial,), name=f"Flash-{serial}")
+        thread = threading.Thread(target=flash_thread, args=(serial, config_path), name=f"Flash-{serial}")
         thread.start()
         threads.append(thread)
         time.sleep(2)  # 错开启动时间
@@ -250,6 +251,23 @@ def flash_all_devices(device_model: str, devices: list):
 
 def main():
     """主函数"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Android 全自动刷机工具")
+    parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls），为空则用项目根目录")
+    parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml），为空则用 config.yaml")
+    args = parser.parse_args()
+
+    config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
+    if not config_path.exists():
+        fallback = Path("config.yaml")
+        if fallback.exists():
+            logger.warning(f"配置不存在: {config_path}，回退到 {fallback}")
+            config_path = fallback
+        else:
+            logger.error(f"配置文件不存在: {config_path}")
+            sys.exit(1)
+
     # 配置日志
     setup_logger()
     
@@ -329,7 +347,7 @@ def main():
     
     # 加载配置验证
     try:
-        config_manager = ConfigManager(device_model=device_model)
+        config_manager = ConfigManager(global_config_path=config_path, device_model=device_model)
         if not config_manager.validate_config():
             logger.error("配置验证失败，退出")
             sys.exit(1)
@@ -340,7 +358,7 @@ def main():
     # 执行刷机
     if choice == 'A':
         # 全部设备并发刷机
-        flash_all_devices(device_model, selected_devices)
+        flash_all_devices(device_model, selected_devices, config_path)
     else:
         # 单个设备刷机
         selected_serial = selected_devices[0]
@@ -357,7 +375,7 @@ def main():
         if resume:
             logger.info(f"从检查点恢复: {checkpoint_info['state']}")
         
-        flash_single_device(device_model, selected_serial, resume)
+        flash_single_device(device_model, selected_serial, resume, config_path)
 
 
 if __name__ == "__main__":
