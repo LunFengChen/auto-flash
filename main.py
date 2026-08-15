@@ -255,7 +255,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Android 全自动刷机工具")
     parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls），为空则用项目根目录")
-    parser.add_argument("--config", default="", help="配置文件名（如 pixel5.yaml），为空则用 config.yaml")
+    parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml），为空则用 config.yaml")
     args = parser.parse_args()
 
     config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")

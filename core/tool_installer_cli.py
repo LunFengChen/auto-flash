@@ -27,7 +27,7 @@ def main():
     parser.add_argument("--binary-only", action="store_true", help="只推送 Binary")
     parser.add_argument("--module-only", action="store_true", help="只推送 Modules")
     parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls）")
-    parser.add_argument("--config", default="", help="配置文件名（如 pixel5.yaml）")
+    parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml）")
     
     args = parser.parse_args()
     

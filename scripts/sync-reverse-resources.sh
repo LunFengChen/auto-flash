@@ -77,5 +77,5 @@ cat <<EOF
 ==> 完成
 APatch 仓库: $APATCH_REPO
 reverse 资源: $REVERSE_ROOT
-配置入口: python main.py --config-dir yamls --config pixel5.yaml
+配置入口: python main.py --config-dir yamls --config pixel5-ks.yaml
 EOF

@@ -1,0 +1,397 @@
+device: blueline
+display_name: Google Pixel 3
+source: https://developers.google.com/android/images#blueline
+download_note: 官方链接为 https://dl.google.com/dl/android/aosp/...，去掉域名中部的 /dl/ 可直连加速下载
+roms:
+- build_id: PD1A.180720.030
+  android_version: "9.0.0"
+  release: "Sep 2018"
+  sha256: d6fefe86e203d4c5b9f2559f82443fb883a34f82cf3a633a87bb342e2fd8bfca
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pd1a.180720.030-factory-d6fefe86.zip
+  flash_url: https://flash.android.com/build/4972053?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pd1a.180720.030-factory-d6fefe86.zip
+- build_id: PD1A.180720.031
+  android_version: "9.0.0"
+  release: "Sep 2018, Verizon"
+  sha256: 3df41a2b65335bb6c130f36b0bbd87c3f90822b7ef04f210232daacc3693142a
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pd1a.180720.031-factory-3df41a2b.zip
+  flash_url: https://flash.android.com/build/5007156?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pd1a.180720.031-factory-3df41a2b.zip
+- build_id: PQ1A.181105.017.A1
+  android_version: "9.0.0"
+  release: "Nov 2018"
+  sha256: b00ec7b509c78ed06648e94ddb6fedcbac29a309d605cad11b55ace7865e2723
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq1a.181105.017.a1-factory-b00ec7b5.zip
+  flash_url: https://flash.android.com/build/5081125?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq1a.181105.017.a1-factory-b00ec7b5.zip
+- build_id: PQ1A.181205.006
+  android_version: "9.0.0"
+  release: "Dec 2018"
+  sha256: af1829a69d8c041729725a2dbd7033f12e4ef346f41353b8416bc25f6609e5cc
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq1a.181205.006-factory-af1829a6.zip
+  flash_url: https://flash.android.com/build/5108886?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq1a.181205.006-factory-af1829a6.zip
+- build_id: PQ1A.181205.006.A1
+  android_version: "9.0.0"
+  release: "Dec 2018, Docomo"
+  sha256: e0442d3b0a9e5636f4979b5780b6173635fe73917e88ffe1b9d36c2bc45aa7bc
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq1a.181205.006.a1-factory-e0442d3b.zip
+  flash_url: https://flash.android.com/build/5148322?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq1a.181205.006.a1-factory-e0442d3b.zip
+- build_id: PQ1A.190105.004
+  android_version: "9.0.0"
+  release: "Jan 2019"
+  sha256: 49adfd52b308b97c5bf576eea7e0ea8ba0f510866b5aea823e1cf1c8d93c3594
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq1a.190105.004-factory-49adfd52.zip
+  flash_url: https://flash.android.com/build/5148680?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq1a.190105.004-factory-49adfd52.zip
+- build_id: PQ2A.190205.001
+  android_version: "9.0.0"
+  release: "Feb 2019"
+  sha256: 7bb97f58ff9abbb6730da2ff6dea6ff938c936054d8d935ee27f412816cc21b8
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq2a.190205.001-factory-7bb97f58.zip
+  flash_url: https://flash.android.com/build/5163636?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq2a.190205.001-factory-7bb97f58.zip
+- build_id: PQ2A.190305.002
+  android_version: "9.0.0"
+  release: "Mar 2019"
+  sha256: b8869812509521216f02bac1d24bf146e0fc11175dc79645b0a91b4029d7ddf8
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq2a.190305.002-factory-b8869812.zip
+  flash_url: https://flash.android.com/build/5240760?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq2a.190305.002-factory-b8869812.zip
+- build_id: PQ2A.190405.003
+  android_version: "9.0.0"
+  release: "Apr 2019"
+  sha256: c12f40f0b189eb2daa80d029917bc9a8841da89cfcafa21b8f61b0d9f90826e7
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq2a.190405.003-factory-c12f40f0.zip
+  flash_url: https://flash.android.com/build/5310204?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq2a.190405.003-factory-c12f40f0.zip
+- build_id: PQ3A.190505.002
+  android_version: "9.0.0"
+  release: "May 2019"
+  sha256: 26d2002511d6a13fc523334b7f783dd757edd543179c7a5dc2f7e1d322efc6e3
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq3a.190505.002-factory-26d20025.zip
+  flash_url: https://flash.android.com/build/5450365?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq3a.190505.002-factory-26d20025.zip
+- build_id: PQ3A.190605.003
+  android_version: "9.0.0"
+  release: "Jun 2019"
+  sha256: 258494df9d2bfb354f7afce3257369fb0b424a5dcd988b34d01b221ef1dc2caa
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq3a.190605.003-factory-258494df.zip
+  flash_url: https://flash.android.com/build/5524043?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq3a.190605.003-factory-258494df.zip
+- build_id: PQ3A.190605.004.A1
+  android_version: "9.0.0"
+  release: "Jun 2019, Verizon"
+  sha256: da940910bf3ac99af6ae53be3971698737ba7cb86f42b4d19e67078fd19d7a58
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq3a.190605.004.a1-factory-da940910.zip
+  flash_url: https://flash.android.com/build/5579337?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq3a.190605.004.a1-factory-da940910.zip
+- build_id: PQ3A.190705.003
+  android_version: "9.0.0"
+  release: "Jul 2019"
+  sha256: c14bfb79b6660398f0454279b98ab45ace896e115c462643c0685089f5f1758f
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq3a.190705.003-factory-c14bfb79.zip
+  flash_url: https://flash.android.com/build/5600800?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq3a.190705.003-factory-c14bfb79.zip
+- build_id: PQ3A.190801.002
+  android_version: "9.0.0"
+  release: "Aug 2019"
+  sha256: f3d66c498994c7ca8c63a97f74bbd2634db7f91e1e114e7924cb721a149ddd2b
+  source_link: https://dl.google.com/dl/android/aosp/blueline-pq3a.190801.002-factory-f3d66c49.zip
+  flash_url: https://flash.android.com/build/5670241?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-pq3a.190801.002-factory-f3d66c49.zip
+- build_id: QP1A.190711.019
+  android_version: "10.0.0"
+  release: "Sep 2019"
+  sha256: 434cc9b1e193aa337723a8a6961339c0046243e5a34cd74a1c44d31d9705cde8
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qp1a.190711.019-factory-434cc9b1.zip
+  flash_url: https://flash.android.com/build/5790879?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qp1a.190711.019-factory-434cc9b1.zip
+- build_id: QP1A.190711.020
+  android_version: "10.0.0"
+  release: "Sep 2019"
+  sha256: b5633fdfa34df0fccc4b6dc86799b1a2ee6a2fc1de1cd9c8a08da7703ad81ec2
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qp1a.190711.020-factory-b5633fdf.zip
+  flash_url: https://flash.android.com/build/5800535?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qp1a.190711.020-factory-b5633fdf.zip
+- build_id: QP1A.190711.020.C3
+  android_version: "10.0.0"
+  release: "Sep 2019"
+  sha256: 1996b3cfc4e83743127f356d349aef2bf577c96d9c8d109b9c8917c81125ab04
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qp1a.190711.020.c3-factory-1996b3cf.zip
+  flash_url: https://flash.android.com/build/5869620?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qp1a.190711.020.c3-factory-1996b3cf.zip
+- build_id: QP1A.191005.007
+  android_version: "10.0.0"
+  release: "Oct 2019"
+  sha256: c36610c69c9561a53498836f3719b6d1b523496d6c9ffd48745b6b57d668b03a
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qp1a.191005.007-factory-c36610c6.zip
+  flash_url: https://flash.android.com/build/5878874?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qp1a.191005.007-factory-c36610c6.zip
+- build_id: QP1A.191105.003
+  android_version: "10.0.0"
+  release: "Nov 2019"
+  sha256: ceab9fdce7f0dcf4c319378b8111f5849af606fc2ebde65296f5910ce7f36c78
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qp1a.191105.003-factory-ceab9fdc.zip
+  flash_url: https://flash.android.com/build/5899767?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qp1a.191105.003-factory-ceab9fdc.zip
+- build_id: QQ1A.191205.008
+  android_version: "10.0.0"
+  release: "Dec 2019"
+  sha256: bc480ac4e1ed999b30db1bf386bbb4e5ff267257a0e3b781daf396a1769415d2
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq1a.191205.008-factory-bc480ac4.zip
+  flash_url: https://flash.android.com/build/5974827?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq1a.191205.008-factory-bc480ac4.zip
+- build_id: QQ1A.200105.002
+  android_version: "10.0.0"
+  release: "Jan 2020"
+  sha256: 05623904d4104d694e3ce6c067bd7fa631b6de71dc62690f1e887aeb001aa296
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq1a.200105.002-factory-05623904.zip
+  flash_url: https://flash.android.com/build/6031801?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq1a.200105.002-factory-05623904.zip
+- build_id: QQ1A.200105.003
+  android_version: "10.0.0"
+  release: "Jan 2020, T-Mobile/Fi"
+  sha256: 8e0fc70e8d598ce753b8e3a9ef77381293af63ea0e91c9c72837233b2d2eb14e
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq1a.200105.003-factory-8e0fc70e.zip
+  flash_url: https://flash.android.com/build/6079943?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq1a.200105.003-factory-8e0fc70e.zip
+- build_id: QQ1A.200205.002
+  android_version: "10.0.0"
+  release: "Feb 2020"
+  sha256: 25feefff12afcbe9c0fbbb1e8b53001c5ccc7275769345adde47227f6a6f2b7a
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq1a.200205.002-factory-25feefff.zip
+  flash_url: https://flash.android.com/build/6084386?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq1a.200205.002-factory-25feefff.zip
+- build_id: QQ2A.200305.002
+  android_version: "10.0.0"
+  release: "Mar 2020"
+  sha256: d781450808addd8c210999bdd2c2fcd91458d07c0b39be185ad114d041247100
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq2a.200305.002-factory-d7814508.zip
+  flash_url: https://flash.android.com/build/6138846?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq2a.200305.002-factory-d7814508.zip
+- build_id: QQ2A.200405.005
+  android_version: "10.0.0"
+  release: "Apr 2020"
+  sha256: 207f10c7c924c96c973ff3c32a9e3683bea85ba4cd08799781fce6543083e806
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq2a.200405.005-factory-207f10c7.zip
+  flash_url: https://flash.android.com/build/6254899?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq2a.200405.005-factory-207f10c7.zip
+- build_id: QQ2A.200501.001.A3
+  android_version: "10.0.0"
+  release: "May 2020, TW carriers"
+  sha256: c6ff28b2581210773014c361cb6804f1881e4884f8d4b1252fe9bebe50ac8708
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq2a.200501.001.a3-factory-c6ff28b2.zip
+  flash_url: https://flash.android.com/build/6353761?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq2a.200501.001.a3-factory-c6ff28b2.zip
+- build_id: QQ2A.200501.001.B2
+  android_version: "10.0.0"
+  release: "May 2020, All carriers except TW"
+  sha256: 3d893ff2938a4b76c329c1772fb1008283604b21a3fadd14f66c3d0263b91baa
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq2a.200501.001.b2-factory-3d893ff2.zip
+  flash_url: https://flash.android.com/build/6352890?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq2a.200501.001.b2-factory-3d893ff2.zip
+- build_id: QQ3A.200605.001
+  android_version: "10.0.0"
+  release: "Jun 2020"
+  sha256: 80a32a4a83ead776f4b10c69b27101084f61ccd63c604af53238cf545011fe1a
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq3a.200605.001-factory-80a32a4a.zip
+  flash_url: https://flash.android.com/build/6392402?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq3a.200605.001-factory-80a32a4a.zip
+- build_id: QQ3A.200605.002.A1
+  android_version: "10.0.0"
+  release: "Jun 2020, Telstra Only"
+  sha256: 6c7d2c7dd7df9b314357a8e66633126aadf167d46b915d0686b172d780bfe3ab
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq3a.200605.002.a1-factory-6c7d2c7d.zip
+  flash_url: https://flash.android.com/build/6492478?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq3a.200605.002.a1-factory-6c7d2c7d.zip
+- build_id: QQ3A.200705.002
+  android_version: "10.0.0"
+  release: "Jul 2020"
+  sha256: 7c1e334bbde1684bc628d7cc3822a2595677f678fd9bc16ecb72255ca7e16560
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq3a.200705.002-factory-7c1e334b.zip
+  flash_url: https://flash.android.com/build/6506677?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq3a.200705.002-factory-7c1e334b.zip
+- build_id: QQ3A.200805.001
+  android_version: "10.0.0"
+  release: "Aug 2020"
+  sha256: 1ba5d2c20f71e46f08a0ae05bc2b478c3e4b3641ec661e9fdb0b8e7ec4df6a22
+  source_link: https://dl.google.com/dl/android/aosp/blueline-qq3a.200805.001-factory-1ba5d2c2.zip
+  flash_url: https://flash.android.com/build/6578210?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-qq3a.200805.001-factory-1ba5d2c2.zip
+- build_id: RP1A.200720.009
+  android_version: "11.0.0"
+  release: "Sep 2020"
+  sha256: 145e4cc4e9591f6d02ce209a87030747170186e4634f43641ce4a027ae7d0bb1
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rp1a.200720.009-factory-145e4cc4.zip
+  flash_url: https://flash.android.com/build/6720564?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rp1a.200720.009-factory-145e4cc4.zip
+- build_id: RP1A.201005.004
+  android_version: "11.0.0"
+  release: "Oct 2020"
+  sha256: 5fbe8c390c1207ce5ac834a2edcdb82a69a647f3ac3d47317abecef8acc23fcd
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rp1a.201005.004-factory-5fbe8c39.zip
+  flash_url: https://flash.android.com/build/6782484?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rp1a.201005.004-factory-5fbe8c39.zip
+- build_id: RP1A.201105.002
+  android_version: "11.0.0"
+  release: "Nov 2020"
+  sha256: 0347d8cd0a70609ebb46f62f635b6d8d91435312b37eed6df17eff02e9aec34c
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rp1a.201105.002-factory-0347d8cd.zip
+  flash_url: https://flash.android.com/build/6869500?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rp1a.201105.002-factory-0347d8cd.zip
+- build_id: RQ1A.201205.003
+  android_version: "11.0.0"
+  release: "Dec 2020, All carriers except Verizon"
+  sha256: fc834072c95e2394cdbbfee0d9ec87aebcf32bd5f975a9a6f2c1413ac8a6b205
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq1a.201205.003-factory-fc834072.zip
+  flash_url: https://flash.android.com/build/6906706?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq1a.201205.003-factory-fc834072.zip
+- build_id: RQ1A.201205.003.A1
+  android_version: "11.0.0"
+  release: "Dec 2020, Verizon"
+  sha256: c9390617a3f59509334fe9714ee7c549d1bce684579d1e7ef169fcf2f8a185a5
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq1a.201205.003.a1-factory-c9390617.zip
+  flash_url: https://flash.android.com/build/7002488?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq1a.201205.003.a1-factory-c9390617.zip
+- build_id: RQ1A.210105.003
+  android_version: "11.0.0"
+  release: "Jan 2021"
+  sha256: c567712209c7cf083b5f0101da938f9d3d132f5e3a7d3b42efd5a67de73c904e
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq1a.210105.003-factory-c5677122.zip
+  flash_url: https://flash.android.com/build/7005429?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq1a.210105.003-factory-c5677122.zip
+- build_id: RQ1D.210105.003
+  android_version: "11.0.0"
+  release: "Jan 2021, Verizon"
+  sha256: 51787c70f6e9ecc4d7b42e50f026df51bca733677fd9de298b1db5786d089365
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq1d.210105.003-factory-51787c70.zip
+  flash_url: https://flash.android.com/build/7005430?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq1d.210105.003-factory-51787c70.zip
+- build_id: RQ1A.210205.004
+  android_version: "11.0.0"
+  release: "Feb 2021"
+  sha256: 3ab98ba8d8e94c16908255a3ed8d75d784a188c0d6aa49f5198cc9d10b887042
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq1a.210205.004-factory-3ab98ba8.zip
+  flash_url: https://flash.android.com/build/7038034?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq1a.210205.004-factory-3ab98ba8.zip
+- build_id: RQ1D.210205.004
+  android_version: "11.0.0"
+  release: "Feb 2021, Verizon"
+  sha256: 3666d1407b7675e3f9ae14f7a1e8463e01b7ddc495e586ff416d7dfc51f5d589
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq1d.210205.004-factory-3666d140.zip
+  flash_url: https://flash.android.com/build/7038035?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq1d.210205.004-factory-3666d140.zip
+- build_id: RQ2A.210305.006
+  android_version: "11.0.0"
+  release: "Mar 2021"
+  sha256: b4a2f36e9e9df4f711c325c1d03d3841f974174dc2796a7f2e44e9b24fa89c8b
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq2a.210305.006-factory-b4a2f36e.zip
+  flash_url: https://flash.android.com/build/7119741?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq2a.210305.006-factory-b4a2f36e.zip
+- build_id: RQ2A.210405.005
+  android_version: "11.0.0"
+  release: "Apr 2021"
+  sha256: f855106fa49e3a3362ac0c1a8e435f39144879fdf0c7e5a2f893f0a048eaa5f9
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq2a.210405.005-factory-f855106f.zip
+  flash_url: https://flash.android.com/build/7181113?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq2a.210405.005-factory-f855106f.zip
+- build_id: RQ2A.210405.006
+  android_version: "11.0.0"
+  release: "Apr 2021, CA carriers"
+  sha256: b694baf0e7a455969df0969e38e58b3042120ab00d6d7567836f3e0ec472a132
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq2a.210405.006-factory-b694baf0.zip
+  flash_url: https://flash.android.com/build/7214111?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq2a.210405.006-factory-b694baf0.zip
+- build_id: RQ2A.210505.002
+  android_version: "11.0.0"
+  release: "May 2021"
+  sha256: 687d8468ec80530140148d75c8971930398267b8d1e20ef89edebc1f4db7e988
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq2a.210505.002-factory-687d8468.zip
+  flash_url: https://flash.android.com/build/7246365?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq2a.210505.002-factory-687d8468.zip
+- build_id: RQ3A.210605.005
+  android_version: "11.0.0"
+  release: "Jun 2021"
+  sha256: 53820251f58e1fff6caaa24dbee010dcace627d2dbff413f13283ca45f59849e
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq3a.210605.005-factory-53820251.zip
+  flash_url: https://flash.android.com/build/7349499?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq3a.210605.005-factory-53820251.zip
+- build_id: RQ3A.210705.001
+  android_version: "11.0.0"
+  release: "Jul 2021"
+  sha256: adc37858b3dcba0e48a92fe47901879ce11e8fcea123948f80769f416f12d559
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq3a.210705.001-factory-adc37858.zip
+  flash_url: https://flash.android.com/build/7380771?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq3a.210705.001-factory-adc37858.zip
+- build_id: RQ3A.210805.001.A1
+  android_version: "11.0.0"
+  release: "Aug 2021"
+  sha256: c2672e81a3975ca11f3258c6709b7d5878964ac22d14d1395a6eb650e1a6b65b
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq3a.210805.001.a1-factory-c2672e81.zip
+  flash_url: https://flash.android.com/build/7474174?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq3a.210805.001.a1-factory-c2672e81.zip
+- build_id: RQ3A.210905.001
+  android_version: "11.0.0"
+  release: "Sep 2021"
+  sha256: 2e414dda6a829af4881ef47b89d84dd8d1643b3d4256e6a62fdc2dd865442542
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq3a.210905.001-factory-2e414dda.zip
+  flash_url: https://flash.android.com/build/7511028?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq3a.210905.001-factory-2e414dda.zip
+- build_id: RQ3A.211001.001
+  android_version: "11.0.0"
+  release: "Oct 2021"
+  sha256: 2cca42397f29cc3b032dbd2b627e65049ffd894be4801a39c292e663d01cbc71
+  source_link: https://dl.google.com/dl/android/aosp/blueline-rq3a.211001.001-factory-2cca4239.zip
+  flash_url: https://flash.android.com/build/7641976?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-rq3a.211001.001-factory-2cca4239.zip
+- build_id: SP1A.210812.015
+  android_version: "12.0.0"
+  release: "Oct 2021"
+  sha256: c5f3469cfd9ac914377eac1d05eb60bde3b88d109c9e618eecf82a938bad5625
+  source_link: https://dl.google.com/dl/android/aosp/blueline-sp1a.210812.015-factory-c5f3469c.zip
+  flash_url: https://flash.android.com/build/7679548?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-sp1a.210812.015-factory-c5f3469c.zip
+- build_id: SP1A.210812.016.A1
+  android_version: "12.0.0"
+  release: "Oct 2021, Verizon"
+  sha256: 514272b9973ab900dd92ab7652291498e868d9778be77979291e9ed60c287838
+  source_link: https://dl.google.com/dl/android/aosp/blueline-sp1a.210812.016.a1-factory-514272b9.zip
+  flash_url: https://flash.android.com/build/7796139?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-sp1a.210812.016.a1-factory-514272b9.zip
+- build_id: SP1A.210812.016.A2
+  android_version: "12.0.0"
+  release: "Jan 2022"
+  sha256: 0e1330dfe4606b92fb441592f1f9e1d8a0a3bd99ade19df6e21cbb003a9593d8
+  source_link: https://dl.google.com/dl/android/aosp/blueline-sp1a.210812.016.a2-factory-0e1330df.zip
+  flash_url: https://flash.android.com/build/7979095?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-sp1a.210812.016.a2-factory-0e1330df.zip
+- build_id: SP1A.210812.016.B1
+  android_version: "12.0.0"
+  release: "Feb 2022, Telstra, Optus, Vodafone AU"
+  sha256: 630114cdf68b480853e9713c87521d8898cfec3c4ee82d3df63ece91ab0b314a
+  source_link: https://dl.google.com/dl/android/aosp/blueline-sp1a.210812.016.b1-factory-630114cd.zip
+  flash_url: https://flash.android.com/build/8029038?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-sp1a.210812.016.b1-factory-630114cd.zip
+- build_id: SP1A.210812.016.C1
+  android_version: "12.0.0"
+  release: "Feb 2022"
+  sha256: b41403db20d13a6f74f8a626ee9ee591adb435768d9f8cf40fefc8c294e2a4e1
+  source_link: https://dl.google.com/dl/android/aosp/blueline-sp1a.210812.016.c1-factory-b41403db.zip
+  flash_url: https://flash.android.com/build/8029091?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-sp1a.210812.016.c1-factory-b41403db.zip
+- build_id: SP1A.210812.016.B2
+  android_version: "12.0.0"
+  release: "Jun 2022, Telstra, Optus, Vodafone AU"
+  sha256: 6eeb77ae47a1933f5c2052bcc1ad36f86833cb05ee193032faa1e8eedf549e42
+  source_link: https://dl.google.com/dl/android/aosp/blueline-sp1a.210812.016.b2-factory-6eeb77ae.zip
+  flash_url: https://flash.android.com/build/8602260?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-sp1a.210812.016.b2-factory-6eeb77ae.zip
+- build_id: SP1A.210812.016.C2
+  android_version: "12.0.0"
+  release: "Jun 2022"
+  sha256: fa981d87b6b28a1996161accbb147f46fe29663bb2ce6cc13dc9e500cbc59c93
+  source_link: https://dl.google.com/dl/android/aosp/blueline-sp1a.210812.016.c2-factory-fa981d87.zip
+  flash_url: https://flash.android.com/build/8618562?target=blueline-user&signed
+  download_url: https://dl.google.com/android/aosp/blueline-sp1a.210812.016.c2-factory-fa981d87.zip

@@ -43,18 +43,20 @@ class FlashStateMachine:
     """刷机状态机"""
     
     def __init__(
-        self, 
+        self,
         initial_state: FlashState = FlashState.INIT,
         checkpoint_manager: Optional['CheckpointManager'] = None,
-        device_info: Optional[Dict] = None
+        device_info: Optional[Dict] = None,
+        config_snapshot: Optional[Dict] = None
     ):
         """
         初始化状态机
-        
+
         Args:
             initial_state: 初始状态
             checkpoint_manager: 检查点管理器（可选）
             device_info: 设备信息（可选）
+            config_snapshot: 随检查点保存的额外配置快照（可选），如随机选中的 ROM build_id
         """
         self.current_state = initial_state
         self.completed_steps: List[str] = []
@@ -62,6 +64,7 @@ class FlashStateMachine:
         self.transitions: List[StateTransition] = []
         self.checkpoint_manager = checkpoint_manager
         self.device_info = device_info or {}
+        self.config_snapshot = config_snapshot or {}
         
         # 定义状态转换规则
         self._define_transitions()
@@ -138,7 +141,7 @@ class FlashStateMachine:
                     current_state=next_state,
                     completed_steps=self.completed_steps,
                     device_info=self.device_info,
-                    config_snapshot={}
+                    config_snapshot=self.config_snapshot
                 )
             except Exception as e:
                 logger.warning(f"⚠ 检查点保存失败: {e}")

@@ -1,5 +1,6 @@
 # Pixel 5 (redfin) 自动刷机配置 - APatch + 常用工具
-# 用法: python main.py --config-dir yamls --config pixel5.yaml
+# 用法: python main.py --config-dir yamls --config pixel5-ks.yaml
+# ROM 策略: random_rom=true 时每次随机抽一套 resources/devices/redfin/ 下的 ROM（系统镜像、boot 补丁、root 均取自同一套）
 
 # 全局设置
 global:
@@ -35,6 +36,8 @@ features:
   install_modules: true           # 是否安装模块
   dry_run: false                  # 只打印操作，不执行
   no_color: false                 # 禁用彩色输出
+  random_rom: false                # 随机抽一套 ROM 刷（true 时忽略 build_id，随机选一套完整的 build 目录）
+  auto_download_rom: true          # 随机抽中的 ROM 本机缺失时，从 yamls/redfin-roms.yaml 清单自动下载并解压到 firmware/
 
 # 批量刷机配置
 batch:
@@ -136,7 +139,7 @@ devices:
     codename: "redfin"
     display_name: "Google Pixel 5"
     brand: "google"
-    android_version: 13
-    build_id: "TP1A.221105.002"
+    android_version: 11
+    build_id: "RQ1D.210205.004"
     superkey: "xiaofeng777"
     boot_img_source: "extract"  # extract, provided, patched

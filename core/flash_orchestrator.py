@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import Optional
 from loguru import logger
 import subprocess
+import random
+import hashlib
 
 from .state_machine import FlashState, FlashStateMachine
 from .device_controller import DeviceController
-from .config_manager import ConfigManager
+from .config_manager import ConfigManager, rom_inventory_path
 from .checkpoint import CheckpointManager
 from .resource_manager import ResourceManager
 from .device_adapter import DeviceAdapterFactory
@@ -97,6 +99,7 @@ class FlashOrchestrator:
                 
                 # 初始化其他必要组件（fastboot 模式下需要）
                 self.device_info = None
+                self.selected_build_id = None
                 self.checkpoint_manager = None
                 self.compatibility_validator = None
                 self.auto_recovery_manager = None
@@ -157,6 +160,7 @@ class FlashOrchestrator:
         
         # 设备信息（稍后获取）
         self.device_info = None
+        self.selected_build_id = None
         self.checkpoint_manager = None
         self.compatibility_validator = None
         self.auto_recovery_manager = None
@@ -232,6 +236,12 @@ class FlashOrchestrator:
                 if checkpoint:
                     initial_state = self.checkpoint_manager.get_state_from_checkpoint(checkpoint)
                     logger.info(f"从检查点恢复: {initial_state.value}")
+
+                    # 恢复随机选中的 ROM build，保证断点续传继续刷同一套 ROM
+                    rom_build_id = checkpoint.config_snapshot.get("rom_build_id")
+                    if rom_build_id:
+                        self.selected_build_id = rom_build_id
+                        logger.info(f"从检查点恢复 ROM build: {rom_build_id}")
             
             # 7. 创建状态机
             self._create_state_machine(checkpoint)
@@ -580,7 +590,223 @@ class FlashOrchestrator:
         
         logger.info("✓ 已进入 Bootloader 模式")
         return FlashState.FLASH_SYSTEM
-    
+
+    def _discover_rom_builds(self) -> list:
+        """
+        列出设备目录下所有可用的 ROM build 目录。
+
+        一套完整 ROM = 该 build 目录下存在 firmware/ 且其中含 image-*.zip。
+        系统镜像、boot 修补、root 均从同一套 build 目录取。
+        """
+        device_resources = Path("resources/devices") / self.config_manager.device_config.model
+        builds = []
+        if device_resources.exists():
+            for build_dir in sorted(device_resources.iterdir()):
+                if build_dir.is_dir() and not build_dir.name.startswith('.'):
+                    firmware_dir = build_dir / "firmware"
+                    if firmware_dir.exists() and list(firmware_dir.glob("image-*.zip")):
+                        builds.append(build_dir)
+        return builds
+
+    def _resolve_rom_build(self) -> Path:
+        """
+        确定本次要刷的 ROM build 目录（系统镜像、boot 修补、root 均取自同一套）。
+
+        选择优先级：
+        1. 本次运行已选定的 build（self.selected_build_id，含从检查点恢复的）
+        2. 随机/配置选择（见 _select_new_rom_build）
+
+        Returns:
+            ROM build 目录
+        """
+        device_resources = Path("resources/devices") / self.config_manager.device_config.model
+
+        # 1. 已选定（本次运行或从检查点恢复），直接复用，保证一致性
+        if self.selected_build_id:
+            cached = device_resources / self.selected_build_id
+            if cached.exists() and (cached / "firmware").exists():
+                build = cached
+            else:
+                logger.warning(f"选定的 ROM 目录不存在，重新选择: {cached}")
+                self.selected_build_id = None
+                build = None
+        else:
+            build = None
+
+        # 2. 需要新选择
+        if build is None:
+            build = self._select_new_rom_build(device_resources)
+            if build is None:
+                raise RuntimeError(
+                    f"未找到可用的完整 ROM 包（需含 firmware/image-*.zip）: {device_resources}"
+                )
+
+        self.selected_build_id = build.name
+
+        # 写入状态机 config_snapshot，随检查点持久化，断点续传时保持一致
+        if self.state_machine is not None:
+            self.state_machine.config_snapshot["rom_build_id"] = self.selected_build_id
+
+        return build
+
+    def _select_new_rom_build(self, device_resources: Path) -> Optional[Path]:
+        """
+        选择一套 ROM build。
+
+        - random_rom=True 且允许下载：池 = 完整 ROM 清单（yamls/{model}-roms.yaml），
+          随机抽一套；本机缺失时按配置自动下载并解压到 firmware/。
+        - random_rom=True 但未允许下载：仅在本机已有 ROM 里随机。
+        - random_rom=False：优先用配置 build_id，找不到则取第一套本机可用 ROM。
+        """
+        local_builds = self._discover_rom_builds()
+        random_rom = self.config_manager.global_config.random_rom
+
+        if random_rom:
+            inventory = self._load_rom_inventory()
+
+            # 允许下载且清单可用：池 = 全清单，抽中本地缺失的就下载（最多尝试 2 次下载）
+            if inventory and self.config_manager.global_config.auto_download_rom:
+                for _ in range(2):
+                    entry = random.choice(inventory)
+                    bid = entry["build_id"]
+                    candidate = device_resources / bid
+                    if self._rom_is_complete(candidate):
+                        logger.info(f"🎲 随机抽中 ROM（本机已有）: {bid}")
+                        return candidate
+                    if self._download_rom(entry) and self._rom_is_complete(candidate):
+                        logger.info(f"🎲 随机抽中 ROM（已下载就绪）: {bid}")
+                        return candidate
+                logger.warning("清单随机抽取未能就绪 ROM（下载失败），回退到本机已有 ROM")
+            else:
+                if inventory:
+                    logger.info("auto_download_rom 未开启，仅在本机已有 ROM 中随机")
+                else:
+                    logger.warning(f"未加载到 ROM 清单（{self._rom_inventory_path()}），仅在本机已有 ROM 中随机")
+
+            # 回退：本机已有 ROM 里随机
+            if local_builds:
+                return random.choice(local_builds)
+            return None
+
+        # 非随机模式：配置 build_id 优先，否则第一套本机可用 ROM
+        if local_builds:
+            cfg_build_id = self.config_manager.device_config.build_id
+            build = next((b for b in local_builds if b.name == cfg_build_id), local_builds[0])
+            if build.name != cfg_build_id:
+                logger.warning(f"配置 build_id ({cfg_build_id}) 不可用，改用 ROM: {build.name}")
+            else:
+                logger.info(f"使用配置指定 ROM: {build.name}")
+            return build
+
+        return None
+
+    @staticmethod
+    def _rom_is_complete(build_dir: Path) -> bool:
+        """判断一个 build 目录是否已是一套完整 ROM（firmware/ 下含 image-*.zip）"""
+        return (build_dir / "firmware").exists() and list((build_dir / "firmware").glob("image-*.zip"))
+
+    def _rom_inventory_path(self) -> Path:
+        """当前设备型号的 ROM 清单路径（yamls/{model}-roms.yaml，缺省回退 redfin 清单）"""
+        model = None
+        if self.config_manager is not None and self.config_manager.device_config is not None:
+            model = self.config_manager.device_config.model
+        return rom_inventory_path(model)
+
+    def _load_rom_inventory(self) -> list:
+        """加载 ROM 清单（yamls/{model}-roms.yaml）"""
+        inventory_path = self._rom_inventory_path()
+        if not inventory_path.exists():
+            logger.warning(f"ROM 清单不存在: {inventory_path}")
+            return []
+        try:
+            import yaml
+            with open(inventory_path, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            roms = data.get("roms", []) if isinstance(data, dict) else []
+            logger.info(f"ROM 清单: {len(roms)} 套可用 ({inventory_path})")
+            return roms
+        except Exception as e:
+            logger.error(f"读取 ROM 清单失败: {e}")
+            return []
+
+    def _download_rom(self, entry: dict) -> bool:
+        """
+        按清单下载一套 factory ROM 并解压到 resources/devices/{model}/{build_id}/firmware/。
+
+        - 下载链接取清单 download_url（已去掉 dl.google.com 中部的 /dl/）
+        - 校验 sha256，防止下载损坏
+        - 只解压顶层 image-*.zip / bootloader / radio / flash-all 脚本，并预提取 boot.img
+        """
+        build_id = entry["build_id"]
+        model = self.config_manager.device_config.model
+        build_dir = Path("resources/devices") / model / build_id
+        firmware_dir = build_dir / "firmware"
+
+        try:
+            url = entry.get("download_url") or entry.get("source_link")
+            if not url:
+                logger.error(f"清单缺少下载链接: {build_id}")
+                return False
+            # 保险起见：若还带着 /dl/，去掉才能下载
+            url = url.replace("https://dl.google.com/dl/android/aosp/", "https://dl.google.com/android/aosp/")
+
+            firmware_dir.mkdir(parents=True, exist_ok=True)
+            tmp_zip = build_dir / f"factory_{build_id}.zip"
+
+            logger.info(f"⬇ 下载 ROM {build_id} ({url}) ...")
+            result = subprocess.run(
+                ["curl", "-L", "--fail", "--retry", "2", "--retry-delay", "3",
+                 "-o", str(tmp_zip), url]
+            )
+            if result.returncode != 0:
+                logger.error(f"下载失败: {build_id} (curl 返回码 {result.returncode})")
+                return False
+
+            # 校验 sha256
+            expected = entry.get("sha256")
+            if expected:
+                h = hashlib.sha256()
+                with open(tmp_zip, "rb") as f:
+                    for chunk in iter(lambda: f.read(1 << 20), b""):
+                        h.update(chunk)
+                if h.hexdigest() != expected.lower():
+                    logger.error(f"sha256 不匹配，删除损坏文件: {build_id}")
+                    tmp_zip.unlink(missing_ok=True)
+                    return False
+                logger.info("✓ sha256 校验通过")
+
+            # 解压顶层文件到 firmware/
+            # factory zip 顶层是单个 {model}-{build}/ 目录，unzip 的通配符不会跨目录前缀匹配，
+            # 需用 */ 前缀（-j 会把文件摊平到目标目录）。unzip 对未匹配的模式返回非 0，
+            # 因此以「关键产物 image-*.zip 是否落地」为准，不依赖退出码。
+            subprocess.run(
+                ["unzip", "-o", "-j", str(tmp_zip),
+                 "*/image-*.zip", "*/bootloader-*.img", "*/radio-*.img",
+                 "*/flash-all.*", "*/flash-base.*",
+                 "-d", str(firmware_dir)],
+                capture_output=True, text=True
+            )
+
+            image_zip = next(firmware_dir.glob("image-*.zip"), None)
+            if image_zip is None:
+                logger.error(f"解压失败：未找到 image-*.zip: {build_id}")
+                return False
+
+            # 预提取 boot.img，避免 BootPatcher 再解一遍 image-*.zip
+            subprocess.run(
+                ["unzip", "-o", "-j", str(image_zip), "boot.img", "-d", str(firmware_dir)],
+                capture_output=True
+            )
+
+            # 清理 factory zip，只保留解压产物
+            tmp_zip.unlink(missing_ok=True)
+            logger.info(f"✓ ROM 就绪: {firmware_dir}")
+            return True
+
+        except Exception as e:
+            logger.error(f"下载/解压 ROM 失败 {build_id}: {e}")
+            return False
+
     def _handle_flash_system(self) -> FlashState:
         """处理刷入系统状态"""
         logger.info("刷入系统...")
@@ -589,22 +815,9 @@ class FlashOrchestrator:
         logger.warning("这可能需要 5-10 分钟，请耐心等待...")
         logger.info("=" * 60)
         
-        # 获取刷机包目录（在 resources/devices/{model}/ 下查找）
-        device_resources_dir = Path("resources/devices") / self.config_manager.device_config.model
-        firmware_dir = None
-        
-        if device_resources_dir.exists():
-            for build_dir in device_resources_dir.iterdir():
-                if build_dir.is_dir() and not build_dir.name.startswith('.'):
-                    firmware_path = build_dir / "firmware"
-                    if firmware_path.exists():
-                        firmware_dir = firmware_path
-                        logger.info(f"找到刷机包: {build_dir.name}")
-                        break
-        
-        if not firmware_dir:
-            raise RuntimeError(f"未找到刷机包目录: {device_resources_dir}")
-        
+        # 确定本次要刷的 ROM build（系统镜像/boot/root 均取自同一套）
+        build_dir = self._resolve_rom_build()
+        firmware_dir = build_dir / "firmware"
         logger.info(f"刷机包目录: {firmware_dir}")
         
         # 直接调用 fastboot 命令刷机
@@ -792,14 +1005,14 @@ class FlashOrchestrator:
             device_config = self.config_manager.device_config
             global_config = self.config_manager.global_config
             
-            # 获取设备资源路径
-            device_resources = Path("resources/devices") / self.config_manager.device_model
-            firmware_dir = device_resources / device_config.build_id / "firmware"
-            root_dir = device_resources / device_config.build_id / "root"
-            
+            # 获取设备资源路径（与系统刷入同一套 ROM）
+            build_dir = self._resolve_rom_build()
+            firmware_dir = build_dir / "firmware"
+            root_dir = build_dir / "root"
+
             patch_config = BootPatchConfig(
                 device_model=self.config_manager.device_model,
-                build_id=device_config.build_id,
+                build_id=self.selected_build_id,
                 firmware_dir=firmware_dir,
                 root_dir=root_dir,
                 superkey=device_config.superkey,
@@ -836,10 +1049,9 @@ class FlashOrchestrator:
             # 使用刚修补的 boot.img
             boot_img = self._patched_boot_path
         else:
-            # 查找已存在的修补后的 boot.img
-            device_config = self.config_manager.device_config
-            device_resources = Path("resources/devices") / self.config_manager.device_model
-            root_dir = device_resources / device_config.build_id / "root"
+            # 查找已存在的修补后的 boot.img（与系统刷入同一套 ROM）
+            build_dir = self._resolve_rom_build()
+            root_dir = build_dir / "root"
             
             # 查找修补后的 boot.img
             patched_boots = list(root_dir.glob("*patched*.img"))
