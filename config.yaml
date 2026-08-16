@@ -48,9 +48,9 @@ root:
   method: "apatch"                # apatch, magisk, kernelsu, none
   
   apatch:
-    version: "11220"              # APatch 版本号（用于匹配修补后的 boot.img）
+    version: "11235"              # APatch 版本号（用于匹配修补后的 boot.img）
     password: "xiaofeng777"       # 默认密码（建议修改）
-    apk_path: "root/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
+    apk_path: "root/APatch_11235_b544163_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
   
   magisk:
     version: "30600"              # Magisk 版本号（用于匹配修补后的 boot.img）
