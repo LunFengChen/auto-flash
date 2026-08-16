@@ -52,11 +52,11 @@ root:
   method: "apatch"                # apatch, magisk, kernelsu, none
 
   apatch:
-    version: "11232"              # APatch 版本号（用于匹配修补后的 boot.img）
+    version: "11235"              # APatch 版本号（用于匹配修补后的 boot.img）
     password: "xiaofeng777"       # 默认密码（建议修改）
     # APatch APK 来自本地仓库 /home/xiaofeng/Desktop/projects/apatch 的构建产物；
     # sync 脚本会复制到 resources/common/root/，刷完免手动授权。
-    apk_path: "root/APatch_11232_66be29d_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
+    apk_path: "root/APatch_11235_b544163_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
 
   magisk:
     version: "30600"              # Magisk 版本号（用于匹配修补后的 boot.img）
@@ -141,9 +141,10 @@ devices:
     codename: "blueline"
     display_name: "Google Pixel 3"
     brand: "google"
-    android_version: 12
-    # 默认 ROM：SP1A.210812.016.C2（Android 12，2022-06，Pixel 3 最终官方版，已下载校验）
-    # 本机另有 RQ1A.210205.004（Android 11）可切换；注意 RQ1D/SP1A.210812.016.A1 等是运营商定制版
-    build_id: "SP1A.210812.016.C2"
+    android_version: 11
+    # 默认 ROM：RQ1A.210205.004（Android 11，2021-02，通用版，本机已下载校验）
+    # 本机另有 SP1A.210812.016.C2（A12 最终版）/ PQ1A.181205.006（A9）可切换；
+    # 注意 RQ1D 等带运营商标注的是定制版；A11 最终版为 RQ3A.211001.001（清单可下）
+    build_id: "RQ1A.210205.004"
     superkey: "xiaofeng777"
     boot_img_source: "extract"  # extract, provided, patched

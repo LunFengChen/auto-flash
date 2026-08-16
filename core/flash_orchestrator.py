@@ -729,6 +729,73 @@ class FlashOrchestrator:
             logger.error(f"读取 ROM 清单失败: {e}")
             return []
 
+    @staticmethod
+    def _doh_resolve_ips(host: str) -> list:
+        """
+        通过 DoH 拿 host 的真实 A 记录列表（多家 DoH 去重合并）。
+
+        本机 DNS 可能被 fake-ip/污染劫持（如 mihomo 返回 28.x 假 IP），
+        直接解析拿不到最优节点。doh.pub 通常返回就近的国内 GGC 缓存 IP，
+        dns.alidns.com 返回 Google 骨干 IP；都收集起来交给测速挑选。
+        """
+        import json
+        import urllib.request
+        ips = []
+        for doh in ("https://doh.pub/dns-query", "https://dns.alidns.com/resolve"):
+            try:
+                req = urllib.request.Request(
+                    f"{doh}?name={host}&type=A",
+                    headers={"accept": "application/dns-json"})
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    data = json.load(r)
+                for ans in data.get("Answer", []):
+                    ip = ans.get("data", "")
+                    if ans.get("type") == 1 and ip and not ip.startswith("28.") and ip not in ips:
+                        ips.append(ip)
+            except Exception as e:
+                logger.debug(f"DoH({doh}) 解析 {host} 失败: {e}")
+        return ips
+
+    @staticmethod
+    def _probe_download_speed(url: str, ip: str, host: str) -> float:
+        """用 1MB range 实测经该 IP 的下载速度（B/s），失败返回 0"""
+        try:
+            r = subprocess.run(
+                ["curl", "-s", "--fail", "--max-time", "6",
+                 "-H", "Accept-Encoding: identity",
+                 "--resolve", f"{host}:443:{ip}",
+                 "-r", "0-1048575", "-o", "/dev/null",
+                 "-w", "%{speed_download}", url],
+                capture_output=True, text=True, timeout=10
+            )
+            if r.returncode == 0:
+                return float(r.stdout.strip() or 0)
+        except Exception:
+            pass
+        return 0.0
+
+    def _curl_download(self, url: str, dest: Path) -> bool:
+        """curl 下载：DoH 收集候选 IP -> 实测选最快节点锁定；失败回退默认路径"""
+        from urllib.parse import urlparse
+        base = ["curl", "-L", "--fail", "--retry", "2", "--retry-delay", "3",
+                "-H", "Accept-Encoding: identity"]
+        host = urlparse(url).hostname or ""
+        candidates = self._doh_resolve_ips(host)
+        best_ip, best_speed = None, 0.0
+        for ip in candidates[:4]:
+            spd = self._probe_download_speed(url, ip, host)
+            logger.info(f"节点测速: {host} -> {ip} = {spd/1024:.0f} KB/s")
+            if spd > best_speed:
+                best_ip, best_speed = ip, spd
+        if best_ip and best_speed > 0:
+            logger.info(f"锁定最快节点: {host} -> {best_ip} ({best_speed/1024/1024:.1f} MB/s)")
+            if subprocess.run(
+                base + ["--resolve", f"{host}:443:{best_ip}", "-o", str(dest), url]
+            ).returncode == 0:
+                return True
+            logger.warning("锁定节点下载失败，回退默认解析路径")
+        return subprocess.run(base + ["-o", str(dest), url]).returncode == 0
+
     def _download_rom(self, entry: dict) -> bool:
         """
         按清单下载一套 factory ROM 并解压到 resources/devices/{model}/{build_id}/firmware/。
@@ -754,12 +821,8 @@ class FlashOrchestrator:
             tmp_zip = build_dir / f"factory_{build_id}.zip"
 
             logger.info(f"⬇ 下载 ROM {build_id} ({url}) ...")
-            result = subprocess.run(
-                ["curl", "-L", "--fail", "--retry", "2", "--retry-delay", "3",
-                 "-o", str(tmp_zip), url]
-            )
-            if result.returncode != 0:
-                logger.error(f"下载失败: {build_id} (curl 返回码 {result.returncode})")
+            if not self._curl_download(url, tmp_zip):
+                logger.error(f"下载失败: {build_id}")
                 return False
 
             # 校验 sha256
