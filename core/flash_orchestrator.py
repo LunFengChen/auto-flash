@@ -10,6 +10,7 @@ from loguru import logger
 import subprocess
 import random
 import hashlib
+import zipfile
 
 from .state_machine import FlashState, FlashStateMachine
 from .device_controller import DeviceController
@@ -596,6 +597,7 @@ class FlashOrchestrator:
         列出设备目录下所有可用的 ROM build 目录。
 
         一套完整 ROM = 该 build 目录下存在 firmware/ 且其中含 image-*.zip。
+        boot-only 场景下，允许只存在 boot.img / payload OTA / 已修补 boot，
         系统镜像、boot 修补、root 均从同一套 build 目录取。
         """
         device_resources = Path("resources/devices") / self.config_manager.device_config.model
@@ -603,8 +605,7 @@ class FlashOrchestrator:
         if device_resources.exists():
             for build_dir in sorted(device_resources.iterdir()):
                 if build_dir.is_dir() and not build_dir.name.startswith('.'):
-                    firmware_dir = build_dir / "firmware"
-                    if firmware_dir.exists() and list(firmware_dir.glob("image-*.zip")):
+                    if self._rom_is_complete(build_dir):
                         builds.append(build_dir)
         return builds
 
@@ -638,7 +639,7 @@ class FlashOrchestrator:
             build = self._select_new_rom_build(device_resources)
             if build is None:
                 raise RuntimeError(
-                    f"未找到可用的完整 ROM 包（需含 firmware/image-*.zip）: {device_resources}"
+                    f"未找到可用的 ROM 包: {device_resources}"
                 )
 
         self.selected_build_id = build.name
@@ -700,10 +701,36 @@ class FlashOrchestrator:
 
         return None
 
+    def _rom_is_complete(self, build_dir: Path) -> bool:
+        """判断一个 build 目录是否对当前模式可用。
+
+        完整系统刷机要求 firmware/image-*.zip（Google factory 包内层镜像包）；
+        boot-only 模式只需要能定位 boot/root 资源，允许一加这类 payload OTA 目录。
+        """
+        firmware_dir = build_dir / "firmware"
+        if not firmware_dir.exists():
+            return False
+
+        if list(firmware_dir.glob("image-*.zip")):
+            return True
+
+        if not getattr(self, "boot_only", False):
+            return False
+
+        root_dir = build_dir / "root"
+        has_patched_boot = root_dir.exists() and bool(list(root_dir.glob("apatch_patched*.img")))
+        has_original_boot = (firmware_dir / "boot.img").exists()
+        has_payload_ota = bool(list(firmware_dir.glob("*full.zip"))) or bool(list(firmware_dir.glob("*.zip")))
+        return has_patched_boot or has_original_boot or has_payload_ota
+
     @staticmethod
-    def _rom_is_complete(build_dir: Path) -> bool:
-        """判断一个 build 目录是否已是一套完整 ROM（firmware/ 下含 image-*.zip）"""
-        return (build_dir / "firmware").exists() and list((build_dir / "firmware").glob("image-*.zip"))
+    def _is_payload_ota(zip_path: Path) -> bool:
+        """判断 zip 是否为 payload.bin OTA 包。"""
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                return "payload.bin" in zf.namelist()
+        except zipfile.BadZipFile:
+            return False
 
     def _rom_inventory_path(self) -> Path:
         """当前设备型号的 ROM 清单路径（yamls/{model}-roms.yaml，缺省回退 redfin 清单）"""
@@ -916,7 +943,13 @@ class FlashOrchestrator:
             # 3. 刷入系统镜像（-w 会清除数据）
             system_zip = list(firmware_dir.glob("image-*.zip"))
             if not system_zip:
-                raise RuntimeError("未找到系统镜像文件")
+                payload_zips = [p for p in firmware_dir.glob("*.zip") if self._is_payload_ota(p)]
+                if payload_zips:
+                    raise RuntimeError(
+                        "当前固件是 payload.bin OTA 包，不能直接用 fastboot update 刷入；"
+                        "请使用 --boot-only 只刷 APatch boot，或先将 payload.bin 转成 fastboot 可刷分区镜像/线刷包。"
+                    )
+                raise RuntimeError("未找到系统镜像文件（需要 firmware/image-*.zip）")
             
             logger.info(f"刷入系统镜像: {system_zip[0].name}")
             logger.info("正在刷入系统，请耐心等待...")

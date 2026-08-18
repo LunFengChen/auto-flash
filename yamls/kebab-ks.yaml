@@ -1,0 +1,164 @@
+# OnePlus 8T (kebab) 自动刷机配置 - APatch + 常用工具
+# 用法: python main.py --config-dir yamls --config kebab-ks.yaml --boot-only
+#       （--boot-only 跳过系统刷入，只刷修补后的 boot.img + 安装 APK/二进制/模块）
+#       python -m core.tool_installer_cli --config-dir yamls --config kebab-ks.yaml --device kebab
+#
+# ROM 说明:
+# - 一加官方整包是 payload.bin 格式 OTA（本机为 KB2000_14.0.0.601_CN01_full.zip），
+#   当前工具只支持 Google 式 image-*.zip 线刷包刷系统；因此完整刷系统暂不可用，
+#   请保持 random_rom=false / auto_download_rom=false，按上方 --boot-only 方式使用。
+# - 若以后放入 Google 式 image-*.zip（或社区 fastboot 线刷包拆出的 image 分区包），
+#   可去掉 --boot-only 走完整刷机流程。
+#
+# 设备型号说明:
+# - OnePlus 8T 的 ro.product.device / fastboot getvar product 均为 kebab，
+#   所以 devices 键必须是 kebab（main.py 用检测到的型号直接查配置）；
+#   model 指向资源目录 resources/devices/oneplus-8t/。
+
+# 全局设置
+global:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  max_retries: 3
+  default_timeout: 30  # 秒
+
+  # ADB/Fastboot 配置
+  adb_path: "adb"       # 默认使用环境变量中的 adb，也可以指定完整路径
+  fastboot_path: "fastboot"  # 默认使用环境变量中的 fastboot，也可以指定完整路径
+
+  # 通用资源路径（相对项目根目录）
+  common_resources:
+    apks: "resources/common/apks"
+    modules: "resources/common/modules"
+    binary: "resources/common/binary"  # 持久化二进制文件（推送到 /data/local/tmp/，不清理）
+
+# 超时设置（秒）
+timeouts:
+  adb_connect: 30
+  fastboot_connect: 30
+  system_boot: 300
+  ui_operation: 10
+  flash_system: 600
+  boot_recovery: 120
+
+# 功能开关
+features:
+  auto_backup_boot: true          # 自动备份原厂 boot.img
+  auto_recovery: true             # 启动失败时自动恢复
+  skip_setup_wizard: true         # 是否跳过初始化向导
+  auto_enable_dev_mode: false     # 是否自动开启开发者模式
+  install_modules: true           # 是否安装模块
+  dry_run: false                  # 只打印操作，不执行
+  no_color: false                 # 禁用彩色输出
+  # 一加 ROM 不在 dl.google.com 清单机制里，随机 ROM / 自动下载不适用，保持关闭
+  random_rom: false               # 随机抽一套 ROM 刷（true 时忽略 build_id，随机选一套完整的 build 目录）
+  auto_download_rom: false        # 随机抽中的 ROM 本机缺失时，从 yamls/{model}-roms.yaml 清单自动下载并解压到 firmware/
+
+# 批量刷机配置
+batch:
+  enabled: false
+  max_concurrent: 5               # 最大并发数
+  auto_detect_max: true           # 自动检测最佳并发数
+
+# Root 方案配置
+root:
+  method: "apatch"                # apatch, magisk, kernelsu, none
+
+  apatch:
+    version: "11235"              # APatch 版本号（用于匹配修补后的 boot.img）
+    password: "xiaofeng777"       # 默认密码（建议修改）
+    # APatch APK 来自本地仓库 /home/xiaofeng/Desktop/projects/apatch 的构建产物；
+    # sync 脚本会复制到 resources/common/root/，刷完免手动授权。
+    apk_path: "root/APatch_11235_b544163_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
+
+  magisk:
+    version: "30600"              # Magisk 版本号（用于匹配修补后的 boot.img）
+    apk_path: "root/KitsuneMagisk-v30.6.apk"  # Magisk APK 相对于 resources/common/
+
+# APK 安装配置
+apk_install:
+  # 策略：Root APK + common/apks/ 下的所有 APK + 额外指定的 APK
+
+  # 是否自动安装 Root 方案的 APK
+  install_root_apk: true
+
+  # 额外的 APK 列表（相对于 resources/common/）
+  # 指定后只安装列表中的 APK（不再全装 apks/ 目录）
+  extra_apks:
+    - "apks/reqable-app-android-arm64.apk"   # Reqable 抓包工具
+    - "apks/appproxy.apk"                    # appproxy，从 /home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk 同步
+    - "apks/快手.apk"                        # 快手
+    - "apks/快手极速版-14.7.20.11779-11779-20260817.apk"  # 快手极速版
+
+# 模块安装配置
+module_install:
+  # 策略：
+  # 1. 推送 common/modules/zip/ 下的所有 ZIP 到设备
+  # 2. 使用 Root 管理器 CLI 自动安装
+
+  # 是否启用模块安装
+  enabled: true
+
+  # 模块安装方式
+  # "cli" - 使用 Root 管理器 CLI 自动安装
+  # "manual" - 只推送到设备，提示用户手动安装
+  install_method: "cli"
+
+  # 模块配置（APatch 和 Magisk 通用）
+  # KPM 内核模块（仅 APatch 支持）
+  install_kpm: false
+  kpm_dir: "modules/kpm"
+
+  # ZIP 通用模块（APatch 和 Magisk 都支持）
+  install_zip: true
+
+  # LSP 功能（可选，APatch 和 Magisk 都支持）
+  install_lsp: false              # 是否安装 LSP
+  lsp_framework: "modules/zip/LSPosed-v1.9.2-7058-zygisk-release.zip"  # LSP 框架
+  lsp_modules_dir: "modules/lsp"            # LSP 模块目录
+
+  # Zygisk 功能（可选，APatch 和 Magisk 都支持）
+  install_zygisk: false           # 是否安装 Zygisk
+  zygisk_modules_dir: "modules/zygisk"      # Zygisk 模块目录
+
+# 二进制工具配置
+binary:
+  # 策略：common/binary/ 下的所有文件 - 全推
+  # 无需配置列表，自动扫描推送
+
+  # 是否启用二进制工具推送
+  enabled: true
+
+  # 推送目标目录
+  target_dir: "/data/local/tmp"
+
+  # 是否设置可执行权限
+  set_executable: true
+
+  # 生命周期：持久化保留（不清理）
+  cleanup_after_flash: false
+
+backup:
+  max_backups: 3                  # 保留最近 N 次备份
+  backup_dir: "backups"
+
+# 日志配置
+logging:
+  log_dir: "logs"
+  max_log_files: 10               # 保留最近 N 个日志文件
+  log_format: "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s"
+
+# 设备配置
+devices:
+  kebab:
+    model: "oneplus-8t"           # 资源目录名：resources/devices/oneplus-8t/
+    codename: "kebab"
+    display_name: "OnePlus 8T"
+    brand: "oneplus"
+    android_version: 14
+    # 默认 ROM：ColorOS 14 CN（KB2000_14.0.0.601.CN01），本机已有
+    #   firmware/boot.img + KB2000_14.0.0.601_CN01_full.zip（payload OTA）
+    #   root/apatch_patched_KB2000_14.0.0.601_CN01_0.13.2.img
+    build_id: "KB2000_14.0.0.601.CN01"
+    superkey: "xiaofeng777"
+    # patched：直接复用 root/ 下已有的 apatch_patched_*.img，不重新修补
+    boot_img_source: "patched"  # extract, provided, patched

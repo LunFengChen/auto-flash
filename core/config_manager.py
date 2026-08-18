@@ -279,12 +279,12 @@ class ConfigManager:
                     for build_dir in builds_dir.iterdir():
                         if build_dir.is_dir() and not build_dir.name.startswith('.'):
                             firmware_dir = build_dir / "firmware"
-                            if firmware_dir.exists() and list(firmware_dir.glob("image-*.zip")):
+                            if firmware_dir.exists() and (list(firmware_dir.glob("image-*.zip")) or (firmware_dir / "boot.img").exists()):
                                 complete_builds.append(build_dir)
                 can_download = self.global_config.auto_download_rom and rom_inventory_path(self.device_config.model).exists()
                 if not complete_builds and not can_download:
                     errors.append(
-                        f"随机 ROM 模式：本机无可用 ROM 包（需含 firmware/image-*.zip）且未开启自动下载: {builds_dir}"
+                        f"随机 ROM 模式：本机无可用 ROM 包（需含 firmware/image-*.zip 或 boot.img）且未开启自动下载: {builds_dir}"
                     )
                 elif complete_builds:
                     logger.info(f"随机 ROM 模式：本机已有 ROM {len(complete_builds)} 套: {[b.name for b in complete_builds]}")

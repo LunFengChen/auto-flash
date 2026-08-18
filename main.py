@@ -165,14 +165,14 @@ def display_device_menu(devices: list):
 
 
 def flash_single_device(device_model: str, device_serial: str, resume: bool = False,
-                          config_path: Path = Path("config.yaml")):
-    """刷机单个设备"""
+                          config_path: Path = Path("config.yaml"), boot_only: bool = False):
+    """刷机单个设备（boot_only=True 时跳过系统刷入，只刷修补后的 boot.img + 安装工具）"""
     try:
         orchestrator = FlashOrchestrator(
             device_model=device_model,
             config_path=config_path,
             resume=resume,
-            boot_only=False,
+            boot_only=boot_only,
             dry_run=False,
             device_serial=device_serial
         )
@@ -199,8 +199,9 @@ def flash_single_device(device_model: str, device_serial: str, resume: bool = Fa
         return False
 
 
-def flash_all_devices(device_model: str, devices: list, config_path: Path = Path("config.yaml")):
-    """并发刷机所有设备"""
+def flash_all_devices(device_model: str, devices: list, config_path: Path = Path("config.yaml"),
+                      boot_only: bool = False):
+    """并发刷机所有设备（boot_only=True 时只刷 boot + 安装工具）"""
     import threading
     import time
     
@@ -217,7 +218,7 @@ def flash_all_devices(device_model: str, devices: list, config_path: Path = Path
         if resume:
             logger.info(f"[{serial}] 从检查点恢复: {checkpoint_info['state']}")
         
-        results[serial] = flash_single_device(device_model, serial, resume, config_path)
+        results[serial] = flash_single_device(device_model, serial, resume, config_path, boot_only)
     
     # 创建线程
     for serial in devices:
@@ -256,6 +257,8 @@ def main():
     parser = argparse.ArgumentParser(description="Android 全自动刷机工具")
     parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls），为空则用项目根目录")
     parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml），为空则用 config.yaml")
+    parser.add_argument("--boot-only", action="store_true",
+                        help="只刷修补后的 boot.img + 安装 APK/模块，跳过系统刷入（保留数据）")
     args = parser.parse_args()
 
     config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
@@ -358,7 +361,7 @@ def main():
     # 执行刷机
     if choice == 'A':
         # 全部设备并发刷机
-        flash_all_devices(device_model, selected_devices, config_path)
+        flash_all_devices(device_model, selected_devices, config_path, boot_only=args.boot_only)
     else:
         # 单个设备刷机
         selected_serial = selected_devices[0]
@@ -375,7 +378,7 @@ def main():
         if resume:
             logger.info(f"从检查点恢复: {checkpoint_info['state']}")
         
-        flash_single_device(device_model, selected_serial, resume, config_path)
+        flash_single_device(device_model, selected_serial, resume, config_path, boot_only=args.boot_only)
 
 
 if __name__ == "__main__":
