@@ -1523,8 +1523,9 @@ class FlashOrchestrator:
                 
                 logger.info(f"使用 superkey: {superkey}")
                 
-                # 方法1: 尝试使用 kpatch su（不需要应用启动）
-                # 从 APatch 源码看，可以直接用 libkpatch.so 执行 su
+                # 方法1: 尝试使用 APatch 直接提权路径（不需要应用启动）
+                # 先试旧的 kpatch 调用，再试 APatch 现在实际可用的 supercmd：
+                # /system/bin/truncate <superkey>
                 kpatch_paths = [
                     "/data/adb/ap/bin/kpatch",
                     "/system/lib64/libkpatch.so",
@@ -1552,10 +1553,29 @@ class FlashOrchestrator:
                     except Exception as e:
                         logger.debug(f"kpatch 路径 {kpatch_path} 不可用: {e}")
                         continue
-                
+
+                # APatch 新版实际使用的是 supercmd：/system/bin/truncate <superkey>
+                # 这条路径在 Pixel 5 上可直接进入 root shell，不需要先启动 App。
+                if not su_available:
+                    logger.info("kpatch su 不可用，尝试 APatch supercmd 路径...")
+                    apatch_shell = f"/system/bin/truncate {shlex.quote(superkey)}"
+                    try:
+                        result = subprocess.run(
+                            self.device_controller.adb_prefix + ["shell", f"{apatch_shell} -c 'echo test'"],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if result.returncode == 0 and "test" in result.stdout:
+                            su_available = True
+                            working_su_method = apatch_shell
+                            logger.info("✓ APatch supercmd 可用: /system/bin/truncate")
+                    except Exception as e:
+                        logger.debug(f"APatch supercmd 不可用: {e}")
+
                 # 如果 kpatch 不可用，尝试标准 su 路径
                 if not su_available:
-                    logger.info("kpatch su 不可用，尝试标准 su 路径...")
+                    logger.info("APatch supercmd 不可用，尝试标准 su 路径...")
                     
                     # 启动 APatch 应用以激活 root 环境
                     logger.info("启动 APatch 应用...")
@@ -1610,60 +1630,9 @@ class FlashOrchestrator:
                             logger.info(f"  su 仍不可用，尝试 {retry + 1}/{max_retries}")
                 
                 if not su_available:
-                    logger.warning("⚠ su 命令不可用")
-                    logger.warning("⚠ 可能原因: APatch 还未激活 root 环境")
-                    logger.info("=" * 60)
-                    logger.info("⚠ 需要手动激活 APatch")
-                    logger.info("=" * 60)
-                    logger.info("请在设备上执行以下操作：")
-                    logger.info("  1. 打开 APatch 应用")
-                    logger.info("  2. 等待应用初始化完成（可能需要几秒钟）")
-                    logger.info("  3. 授予必要的权限")
-                    logger.info("")
-                    logger.info("完成后，按 Enter 键继续模块安装...")
-                    logger.info("（或按 Ctrl+C 跳过模块安装）")
-                    logger.info("=" * 60)
-                    
-                    try:
-                        input()  # 等待用户按 Enter
-                        logger.info("继续检查 su 命令...")
-                        
-                        # 重新检查 su 是否可用
-                        for su_path in su_paths:
-                            try:
-                                result = subprocess.run(
-                                    self.device_controller.adb_prefix + ["shell", f"{su_path} -c 'echo test'"],
-                                    capture_output=True,
-                                    text=True,
-                                    timeout=5
-                                )
-                                if result.returncode == 0 and "test" in result.stdout:
-                                    su_available = True
-                                    working_su_method = su_path
-                                    logger.info(f"✓ su 现在可用了: {su_path}")
-                                    break
-                            except Exception:
-                                continue
-                        
-                        if not su_available:
-                            logger.error("✗ su 命令仍然不可用")
-                            logger.info("=" * 60)
-                            logger.info("模块已推送到设备 /sdcard/Download/ 目录")
-                            logger.info("请手动打开 APatch 管理器安装以下模块:")
-                            for module in modules_to_install:
-                                logger.info(f"  - {module.name}")
-                            logger.info("=" * 60)
-                            return FlashState.COMPLETED
-                    
-                    except KeyboardInterrupt:
-                        logger.warning("\n用户跳过模块安装")
-                        logger.info("=" * 60)
-                        logger.info("模块已推送到设备 /sdcard/Download/ 目录")
-                        logger.info("请手动打开 APatch 管理器安装以下模块:")
-                        for module in modules_to_install:
-                            logger.info(f"  - {module.name}")
-                            logger.info("=" * 60)
-                            return FlashState.COMPLETED
+                    logger.error("✗ APatch root 不可用：su/kpatch 均无法执行")
+                    logger.error("✗ 自动刷机禁止回退到人工激活或假完成；请检查 patched boot 与内核兼容性")
+                    raise RuntimeError("APatch root 未激活，自动 root 失败")
                 
                 if executable_files:
                     logger.info("使用已验证的 root 环境设置 binary 可执行权限...")

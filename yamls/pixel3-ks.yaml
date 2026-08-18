@@ -75,6 +75,7 @@ apk_install:
     - "apks/reqable-app-android-arm64.apk"   # Reqable 抓包工具
     - "apks/appproxy.apk"                    # appproxy，从 /home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk 同步
     - "apks/快手.apk"                        # 快手
+    - "apks/快手极速版-14.7.20.11779-11779-20260817.apk"  # 快手极速版
 
 # 模块安装配置
 module_install:

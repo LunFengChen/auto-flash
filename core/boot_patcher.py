@@ -199,11 +199,11 @@ class BootPatcher:
         if not root_dir.exists():
             return None
         
-        # Search patterns (in priority order)
+        # APatch-only: never reuse Magisk-patched images or generic patched files.
+        # A stale Magisk boot image here can make an APatch run look successful
+        # while the device is not actually APatch-rooted.
         patterns = [
             "apatch_patched*.img",
-            "*patched*.img",
-            "magisk_patched*.img"
         ]
         
         for pattern in patterns:
