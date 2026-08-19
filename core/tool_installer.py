@@ -269,7 +269,7 @@ class ToolInstaller:
         使用 Root 管理器 CLI 安装模块
         
         Magisk: 使用 `magisk --install-module <path>` 命令
-        APatch: 使用 `apd module install <path>` 命令（apd 位于 /data/adb/ap/bin/apd）
+        APatch: 使用 `apd module install <path>` 命令（apd 位于 /data/adb/apd）
         
         Args:
             root_method: Root 方案（apatch/magisk）
@@ -333,8 +333,8 @@ class ToolInstaller:
                 
                 try:
                     # APatch CLI 命令: apd module install <path>
-                    # apd 位于 /data/adb/ap/bin/apd
-                    cmd = f"su -c '/data/adb/ap/bin/apd module install {module_file}'"
+                    # 当前机型验证可用路径: /data/adb/apd
+                    cmd = f'su -c "/data/adb/apd module install {module_file}"'
                     output = self.device_controller.adb_shell(cmd, timeout=60)
                     
                     # APatch 成功时通常输出包含 "success" 或没有错误信息

@@ -1821,13 +1821,13 @@ class FlashOrchestrator:
                 # 检查 APatch CLI 是否存在
                 try:
                     cli_check = subprocess.run(
-                        self.device_controller.adb_prefix + ["shell", working_su_method, "-c", "test -f /data/adb/ap/bin/apd && echo exists"],
+                        self.device_controller.adb_prefix + ["shell", working_su_method, "-c", "test -f /data/adb/apd && echo exists"],
                         capture_output=True,
                         text=True,
                         timeout=5
                     )
                     if "exists" not in cli_check.stdout:
-                        logger.warning("⚠ APatch CLI 不可用: /data/adb/ap/bin/apd 不存在")
+                        logger.warning("⚠ APatch CLI 不可用: /data/adb/apd 不存在")
                         logger.warning("⚠ 可能原因: APatch 应用未完成初始化")
                         logger.info("=" * 60)
                         logger.info("模块已推送到设备 /sdcard/Download/ 目录")
@@ -1847,7 +1847,7 @@ class FlashOrchestrator:
                     logger.info("=" * 60)
                     return FlashState.COMPLETED
                 
-                # APatch CLI: su -c "/data/adb/ap/bin/apd -s <superkey> module install <path>"
+                # APatch CLI: su -c "/data/adb/apd -s <superkey> module install <path>"
                 
                 # 获取 superkey
                 superkey = self.config_manager.device_config.superkey
@@ -1865,7 +1865,7 @@ class FlashOrchestrator:
                     module_path = f"/sdcard/Download/{module.name}"
                     logger.info(f"安装模块: {module.name}")
                     try:
-                        install_cmd = f'/data/adb/ap/bin/apd -s {superkey} module install "{module_path}"'
+                        install_cmd = f'/data/adb/apd -s {superkey} module install "{module_path}"'
                         output = subprocess.run(
                             self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(install_cmd)}"],
                             capture_output=True,
