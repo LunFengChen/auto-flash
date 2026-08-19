@@ -10,6 +10,7 @@
     python -m core.tool_installer_cli --config-dir yamls --config kebab-ks.yaml --device kebab  # OnePlus 8T
 """
 
+import sys
 from pathlib import Path
 import yaml
 from loguru import logger
@@ -30,6 +31,7 @@ def main():
     parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls）")
     parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml）")
     parser.add_argument("--device", default="redfin", help="设备型号/代号（如 redfin、kebab）")
+    parser.add_argument("--serial", default="", help="指定 ADB 设备序列号，多设备连接时必须指定")
     
     args = parser.parse_args()
     
@@ -55,6 +57,7 @@ def main():
         
         # 创建设备控制器
         dc = DeviceController(
+            serial=args.serial or None,
             adb_path=config_manager.global_config.adb_path,
             fastboot_path=config_manager.global_config.fastboot_path
         )

@@ -176,7 +176,7 @@ class DeviceController:
         cmd = self.adb_prefix + ["shell", command]
         return self._run_command(cmd, timeout=timeout, capture_output=True)
     
-    def adb_install(self, apk_path: Path, timeout: int = 60) -> bool:
+    def adb_install(self, apk_path: Path, timeout: int = 900) -> bool:
         """
         安装 APK
         
