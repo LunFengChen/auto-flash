@@ -55,6 +55,7 @@ class FlashOrchestrator:
         config_path: Path = Path("config.yaml"),
         resume: bool = False,
         boot_only: bool = False,
+        clean_flash: bool = False,
         dry_run: bool = False,
         device_serial: Optional[str] = None
     ):
@@ -66,6 +67,7 @@ class FlashOrchestrator:
             config_path: 配置文件路径
             resume: 是否从检查点恢复
             boot_only: 只刷 boot.img（保留数据）
+            clean_flash: 只刷原厂系统并清空数据，不安装 APatch/APK/模块/binary
             dry_run: 模拟运行（不执行实际操作）
             device_serial: 指定设备序列号（可选，用于多设备场景）
         """
@@ -101,7 +103,19 @@ class FlashOrchestrator:
                         fastboot_devices.append(device_id)
             
             if fastboot_devices:
-                device_serial = fastboot_devices[0]
+                if device_serial:
+                    if device_serial not in fastboot_devices:
+                        logger.error(f"指定的 Fastboot 设备 {device_serial} 未连接")
+                        logger.info(f"可用 Fastboot 设备: {fastboot_devices}")
+                        raise RuntimeError(f"设备 {device_serial} 未连接")
+                    selected_device = device_serial
+                else:
+                    selected_device = fastboot_devices[0]
+                    if len(fastboot_devices) > 1:
+                        logger.warning(f"检测到多个 Fastboot 设备: {fastboot_devices}")
+                        logger.info(f"未指定序列号，使用第一个设备: {selected_device}")
+
+                device_serial = selected_device
                 logger.info(f"检测到 Fastboot 设备: {device_serial}")
                 logger.info("设备已在 Bootloader 模式，将跳过前置步骤直接刷机")
                 self.is_in_fastboot_mode = True
@@ -132,6 +146,7 @@ class FlashOrchestrator:
                 # 运行模式
                 self.resume = resume
                 self.boot_only = boot_only
+                self.clean_flash = clean_flash
                 self.dry_run = dry_run
                 
                 logger.info("✓ 刷机编排器初始化完成")
@@ -193,6 +208,7 @@ class FlashOrchestrator:
         # 运行模式
         self.resume = resume
         self.boot_only = boot_only
+        self.clean_flash = clean_flash
         self.dry_run = dry_run
         # is_in_fastboot_mode 已在第 62 行初始化为 False，Fastboot 模式会设置为 True
         
@@ -1034,15 +1050,18 @@ class FlashOrchestrator:
         """
         fc = self.device_controller
 
-        # 0) boot：优先刷 APatch 修补 boot，让全清后第一次启动就有 root
-        patched_boot = self._find_patched_boot(images_dir.parent.parent)
+        # 0) boot：clean-flash 使用原厂 boot；普通流程才优先使用 APatch boot
+        boot_img = images_dir / "boot.img"
+        patched_boot = None if self.clean_flash else self._find_patched_boot(images_dir.parent.parent)
         if patched_boot is not None:
             logger.info(f"刷入 APatch 修补 boot: {patched_boot.name}")
             if not fc.fastboot_flash("boot", patched_boot, timeout=300):
                 raise RuntimeError("boot 分区刷入失败")
         else:
-            boot_img = images_dir / "boot.img"
-            logger.warning("未找到 APatch 修补 boot，先刷官方 stock boot（后续 FLASH_BOOT 阶段再补刷）")
+            if self.clean_flash:
+                logger.info("clean-flash 模式：刷入原厂 stock boot")
+            else:
+                logger.warning("未找到 APatch 修补 boot，先刷官方 stock boot（后续 FLASH_BOOT 阶段再补刷）")
             if not boot_img.exists() or not fc.fastboot_flash("boot", boot_img, timeout=300):
                 raise RuntimeError("boot 分区刷入失败")
 
@@ -1070,12 +1089,20 @@ class FlashOrchestrator:
             if not fc.fastboot_flash(part, img, timeout=1800):
                 raise RuntimeError(f"分区刷入失败: {part}")
 
-        # 3) 清数据（用户要求全刷）
+        # 3) fastbootd 中的 -w 在部分 OPLUS 设备上可能只返回成功但未实际格式化，
+        #    先回到 bootloader，再执行擦除，避免旧 /data 被保留。
+        logger.info("从 fastbootd 返回 Bootloader 后清除用户数据...")
+        if not fc.fastboot_reboot_bootloader(timeout=30):
+            raise RuntimeError("返回 Bootloader 失败，拒绝继续以免保留用户数据")
+        if not fc.wait_for_fastboot(timeout=90):
+            raise RuntimeError("等待 Bootloader 超时")
+
+        # 4) 清数据（用户要求全刷）
         logger.info("清除用户数据（全刷）...")
         if not fc.fastboot_wipe(timeout=900):
             raise RuntimeError("清除用户数据失败")
 
-        # 4) 重启进系统（WAIT_BOOT 阶段等待 ADB）
+        # 5) 重启进系统（WAIT_BOOT 阶段等待 ADB）
         if not fc.fastboot_reboot(timeout=30):
             raise RuntimeError("重启设备失败")
 
@@ -1099,6 +1126,10 @@ class FlashOrchestrator:
         import time
         logger.info("等待系统稳定...")
         time.sleep(10)
+
+        if self.clean_flash:
+            logger.info("clean-flash 模式：系统已全刷并清空数据，跳过所有后置安装")
+            return FlashState.COMPLETED
         
         return FlashState.SETUP_WIZARD
     

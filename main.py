@@ -165,14 +165,16 @@ def display_device_menu(devices: list):
 
 
 def flash_single_device(device_model: str, device_serial: str, resume: bool = False,
-                          config_path: Path = Path("config.yaml"), boot_only: bool = False):
-    """刷机单个设备（boot_only=True 时跳过系统刷入，只刷修补后的 boot.img + 安装工具）"""
+                          config_path: Path = Path("config.yaml"), boot_only: bool = False,
+                          clean_flash: bool = False):
+    """刷机单个设备；clean_flash=True 时只刷原厂系统并清空数据。"""
     try:
         orchestrator = FlashOrchestrator(
             device_model=device_model,
             config_path=config_path,
             resume=resume,
             boot_only=boot_only,
+            clean_flash=clean_flash,
             dry_run=False,
             device_serial=device_serial
         )
@@ -200,8 +202,8 @@ def flash_single_device(device_model: str, device_serial: str, resume: bool = Fa
 
 
 def flash_all_devices(device_model: str, devices: list, config_path: Path = Path("config.yaml"),
-                      boot_only: bool = False):
-    """并发刷机所有设备（boot_only=True 时只刷 boot + 安装工具）"""
+                      boot_only: bool = False, clean_flash: bool = False):
+    """并发刷机所有设备。"""
     import threading
     import time
     
@@ -213,12 +215,14 @@ def flash_all_devices(device_model: str, devices: list, config_path: Path = Path
     def flash_thread(serial, config_path):
         # 检查是否有检查点
         checkpoint_info = check_device_checkpoint(serial)
-        resume = checkpoint_info["has_checkpoint"]
+        resume = checkpoint_info["has_checkpoint"] and not clean_flash
         
         if resume:
             logger.info(f"[{serial}] 从检查点恢复: {checkpoint_info['state']}")
         
-        results[serial] = flash_single_device(device_model, serial, resume, config_path, boot_only)
+        results[serial] = flash_single_device(
+            device_model, serial, resume, config_path, boot_only, clean_flash
+        )
     
     # 创建线程
     for serial in devices:
@@ -263,7 +267,11 @@ def main():
                         help="指定要刷的设备序列号，跳过交互选择，避免多设备时误选")
     parser.add_argument("--fresh", action="store_true",
                         help="清除目标设备检查点并从头全刷（不从旧检查点恢复）")
+    parser.add_argument("--clean-flash", action="store_true",
+                        help="纯净全刷：刷原厂系统、清空数据，跳过 APatch/APK/模块/binary")
     args = parser.parse_args()
+    if args.boot_only and args.clean_flash:
+        parser.error("--boot-only 与 --clean-flash 不能同时使用")
 
     config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
     if not config_path.exists():
@@ -299,7 +307,7 @@ def main():
         logger.error("  3. ADB 驱动是否已安装")
         sys.exit(1)
     
-    if args.fresh:
+    if args.fresh or args.clean_flash:
         logger.info("\n清除目标设备检查点...")
         for serial in devices:
             cm = CheckpointManager(serial)
@@ -380,7 +388,10 @@ def main():
     # 执行刷机
     if choice == 'A':
         # 全部设备并发刷机
-        flash_all_devices(device_model, selected_devices, config_path, boot_only=args.boot_only)
+        flash_all_devices(
+            device_model, selected_devices, config_path,
+            boot_only=args.boot_only, clean_flash=args.clean_flash
+        )
     else:
         # 单个设备刷机
         selected_serial = selected_devices[0]
@@ -389,7 +400,7 @@ def main():
         checkpoint_info = check_device_checkpoint(selected_serial)
         resume = False
         
-        if checkpoint_info["has_checkpoint"] and not args.fresh:
+        if checkpoint_info["has_checkpoint"] and not (args.fresh or args.clean_flash):
             if args.serial:
                 logger.info(f"检测到检查点 (状态: {checkpoint_info['state']})；--serial 默认不自动恢复，需恢复请走交互模式")
                 resume = False
@@ -401,7 +412,10 @@ def main():
         if resume:
             logger.info(f"从检查点恢复: {checkpoint_info['state']}")
         
-        flash_single_device(device_model, selected_serial, resume, config_path, boot_only=args.boot_only)
+        flash_single_device(
+            device_model, selected_serial, resume, config_path,
+            boot_only=args.boot_only, clean_flash=args.clean_flash
+        )
 
 
 if __name__ == "__main__":

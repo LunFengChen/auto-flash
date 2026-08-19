@@ -388,6 +388,17 @@ class DeviceController:
             logger.error(f"✗ Fastboot 重启到 fastbootd 失败: {e}")
             return False
 
+    def fastboot_reboot_bootloader(self, timeout: int = 30) -> bool:
+        """从 fastbootd 返回 bootloader fastboot。"""
+        cmd = self.fastboot_prefix + ["reboot", "bootloader"]
+        try:
+            self._run_command(cmd, timeout=timeout, check=True)
+            logger.info("✓ Fastboot 返回 Bootloader")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Fastboot 返回 Bootloader 失败: {e}")
+            return False
+
     def fastboot_wipe(self, timeout: int = 900) -> bool:
         """
         Fastboot 清除用户数据（-w，全刷）
