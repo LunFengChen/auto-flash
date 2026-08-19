@@ -1,8 +1,8 @@
 # OnePlus 8T (kebab) 自动刷机配置 - APatch + 常用工具
 # 用法（完整全刷，清数据）:
-#   python main.py --config-dir yamls --config kebab-ks.yaml
+#   python main.py --config-dir yamls --config kebab-ks.yaml --serial 860bd5c4 --fresh
 # 用法（只刷 boot + 装 APK/二进制/模块，保留数据）:
-#   python main.py --config-dir yamls --config kebab-ks.yaml --boot-only
+#   python main.py --config-dir yamls --config kebab-ks.yaml --serial 860bd5c4 --boot-only
 #   python -m core.tool_installer_cli --config-dir yamls --config kebab-ks.yaml --device kebab
 #
 # ROM 说明:
@@ -13,7 +13,7 @@
 # - 也可放入 Google 式 image-*.zip 线刷包走原有 fastboot update 全刷流程。
 #
 # 设备型号说明:
-# - OnePlus 8T 的 ro.product.device 为 OnePlus8T、fastboot getvar product 为 kebab；
+# - OnePlus 8T 的 ro.product.device 为 OnePlus8T；fastboot getvar product 可能返回 kebab 或 kona；
 #   config_manager 已做大小写归一化，devices 键用 kebab 即可；
 #   model 指向资源目录 resources/devices/oneplus-8t/。
 

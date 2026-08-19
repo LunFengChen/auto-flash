@@ -259,6 +259,10 @@ def main():
     parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml），为空则用 config.yaml")
     parser.add_argument("--boot-only", action="store_true",
                         help="只刷修补后的 boot.img + 安装 APK/模块，跳过系统刷入（保留数据）")
+    parser.add_argument("--serial", default="",
+                        help="指定要刷的设备序列号，跳过交互选择，避免多设备时误选")
+    parser.add_argument("--fresh", action="store_true",
+                        help="清除目标设备检查点并从头全刷（不从旧检查点恢复）")
     args = parser.parse_args()
 
     config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
@@ -280,6 +284,12 @@ def main():
     
     # 获取连接的设备
     devices = get_connected_devices()
+    if args.serial:
+        if args.serial not in devices:
+            logger.error(f"指定设备未连接: {args.serial}")
+            logger.error(f"当前检测到设备: {', '.join(devices) if devices else '无'}")
+            sys.exit(1)
+        devices = [args.serial]
     
     if not devices:
         logger.error("未检测到本地 USB 设备")
@@ -289,11 +299,20 @@ def main():
         logger.error("  3. ADB 驱动是否已安装")
         sys.exit(1)
     
-    # 显示设备菜单
-    display_device_menu(devices)
-    
-    # 获取用户选择
-    choice = input("\n请选择设备 (输入序号/A/C/Q): ").strip().upper()
+    if args.fresh:
+        logger.info("\n清除目标设备检查点...")
+        for serial in devices:
+            cm = CheckpointManager(serial)
+            if cm.has_checkpoint():
+                cm.clear_checkpoint()
+                logger.info(f"✓ 已清除设备 {serial} 的检查点")
+
+    # 显示设备菜单；指定 --serial 时跳过交互，强制只刷该设备
+    if args.serial:
+        choice = "1"
+    else:
+        display_device_menu(devices)
+        choice = input("\n请选择设备 (输入序号/A/C/Q): ").strip().upper()
     
     if choice == 'Q':
         logger.info("已退出")
@@ -370,9 +389,13 @@ def main():
         checkpoint_info = check_device_checkpoint(selected_serial)
         resume = False
         
-        if checkpoint_info["has_checkpoint"]:
-            resume_choice = input(f"\n检测到检查点 (状态: {checkpoint_info['state']})，是否从检查点恢复？(Y/n): ").strip().lower()
-            resume = resume_choice != 'n'
+        if checkpoint_info["has_checkpoint"] and not args.fresh:
+            if args.serial:
+                logger.info(f"检测到检查点 (状态: {checkpoint_info['state']})；--serial 默认不自动恢复，需恢复请走交互模式")
+                resume = False
+            else:
+                resume_choice = input(f"\n检测到检查点 (状态: {checkpoint_info['state']})，是否从检查点恢复？(Y/n): ").strip().lower()
+                resume = resume_choice != 'n'
         
         logger.info(f"\n开始刷机: {selected_serial}")
         if resume:

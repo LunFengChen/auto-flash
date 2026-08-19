@@ -214,6 +214,8 @@ class ConfigManager:
             "oneplus8t": "kebab",
             "oneplus-8t": "kebab",
             "op8t": "kebab",
+            # 部分 OnePlus 8T fastboot getvar product 会返回 SoC 平台名 kona
+            "kona": "kebab",
         }
         canonical = alias_map.get(lower)
         if canonical and canonical in devices:
