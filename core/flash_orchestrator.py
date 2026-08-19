@@ -1035,7 +1035,7 @@ class FlashOrchestrator:
         fc = self.device_controller
 
         # 0) boot：优先刷 APatch 修补 boot，让全清后第一次启动就有 root
-        patched_boot = self._find_patched_boot(images_dir.parent)
+        patched_boot = self._find_patched_boot(images_dir.parent.parent)
         if patched_boot is not None:
             logger.info(f"刷入 APatch 修补 boot: {patched_boot.name}")
             if not fc.fastboot_flash("boot", patched_boot, timeout=300):
