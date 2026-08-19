@@ -119,16 +119,23 @@ class CompatibilityValidator:
         """
         device_info = self.get_device_info()
         
+        def normalize(s: str) -> str:
+            # 归一化：小写 + 去掉分隔符，使 oneplus-8t / OnePlus8T / kebab 可互比
+            return re.sub(r"[^a-z0-9]", "", s.lower())
+        
+        expected_norm = normalize(expected_model)
+        actual_norm = normalize(device_info.model)
+        
         if strict:
-            # 严格匹配
-            if device_info.model != expected_model:
+            # 严格匹配（归一化后）
+            if expected_norm != actual_norm:
                 logger.error(f"❌ 设备型号不匹配:")
                 logger.error(f"   期望: {expected_model}")
                 logger.error(f"   实际: {device_info.model}")
                 return False
         else:
             # 模糊匹配
-            if expected_model.lower() not in device_info.model.lower():
+            if expected_norm not in actual_norm:
                 logger.error(f"❌ 设备型号不匹配:")
                 logger.error(f"   期望包含: {expected_model}")
                 logger.error(f"   实际: {device_info.model}")

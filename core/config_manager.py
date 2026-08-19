@@ -196,6 +196,30 @@ class ConfigManager:
             logger.info("使用默认配置")
             return GlobalConfig()
     
+    @staticmethod
+    def _resolve_device_key(device_model: str, data: dict) -> Optional[str]:
+        """解析设备配置键：精确匹配 -> 大小写不敏感 -> 已知别名（如 OnePlus8T -> kebab）"""
+        devices = data.get("devices") or {}
+        if device_model in devices:
+            return device_model
+
+        lower = device_model.lower()
+        # 大小写不敏感
+        for key in devices:
+            if key.lower() == lower:
+                return key
+
+        # 已知别名（与 DeviceAdapterFactory.MODEL_ALIASES 保持一致）
+        alias_map = {
+            "oneplus8t": "kebab",
+            "oneplus-8t": "kebab",
+            "op8t": "kebab",
+        }
+        canonical = alias_map.get(lower)
+        if canonical and canonical in devices:
+            return canonical
+        return None
+
     def load_device_config(self, device_model: str) -> DeviceConfig:
         """
         加载设备配置（从全局配置文件的 devices 部分）
@@ -210,12 +234,13 @@ class ConfigManager:
             with open(self.global_config_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
             
-            # 从 devices 部分读取设备配置
-            if "devices" not in data or device_model not in data["devices"]:
+            # 从 devices 部分读取设备配置（支持别名/大小写归一化，如 OnePlus8T -> kebab）
+            device_key = self._resolve_device_key(device_model, data)
+            if device_key is None:
                 logger.error(f"✗ 设备配置不存在: {device_model}")
                 raise ValueError(f"设备配置不存在: {device_model}")
             
-            device_data = data["devices"][device_model]
+            device_data = data["devices"][device_key]
             
             # 解析设备信息
             config = DeviceConfig(
