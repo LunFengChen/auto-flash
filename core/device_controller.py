@@ -350,6 +350,41 @@ class DeviceController:
             logger.error(f"✗ Fastboot 重启失败: {e}")
             return False
     
+    def fastboot_reboot_fastbootd(self, timeout: int = 30) -> bool:
+        """
+        Fastboot 重启到 fastbootd（userspace fastboot，用于刷动态分区）
+
+        Returns:
+            是否执行成功
+        """
+        cmd = self.fastboot_prefix + ["reboot", "fastboot"]
+        try:
+            self._run_command(cmd, timeout=timeout, check=True)
+            logger.info("✓ Fastboot 重启到 fastbootd")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Fastboot 重启到 fastbootd 失败: {e}")
+            return False
+
+    def fastboot_wipe(self, timeout: int = 900) -> bool:
+        """
+        Fastboot 清除用户数据（-w，全刷）
+
+        Args:
+            timeout: 超时时间（秒）
+
+        Returns:
+            是否执行成功
+        """
+        cmd = self.fastboot_prefix + ["-w"]
+        try:
+            self._run_command(cmd, timeout=timeout, check=True)
+            logger.info("✓ 用户数据已清除")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Fastboot 清除用户数据失败: {e}")
+            return False
+
     def fastboot_getvar(self, var_name: str) -> str:
         """
         获取 Fastboot 变量

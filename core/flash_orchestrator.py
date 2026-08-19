@@ -26,6 +26,26 @@ from .error_handler import ErrorHandler
 from .progress_display import ProgressDisplay
 
 
+# 一加/OPPO payload OTA 解包出的分区镜像（firmware/images/*.img）分两批刷写：
+# - 非动态分区：普通 bootloader fastboot 直接刷
+# - 动态分区：需 fastboot reboot fastboot 进 fastbootd（userspace fastboot）后刷入 super
+# boot 分区不在此清单里：优先刷 APatch 修补 boot，保证全清后首次启动即有 root
+_NON_DYNAMIC_PARTITIONS = [
+    "abl", "aop", "bluetooth", "cmnlib", "cmnlib64", "devcfg", "dsp", "dtbo",
+    "featenabler", "hyp", "imagefv", "keymaster", "logo", "mdm_oem_stanvbk",
+    "modem", "multiimgoem", "qupfw", "recovery", "reserve", "spunvm",
+    "storsec", "tz", "uefisecapp", "vbmeta", "vbmeta_system", "xbl",
+    "xbl_config", "xbl_lp5", "xbl_config_lp5",
+]
+
+_DYNAMIC_PARTITIONS = [
+    "system", "system_ext", "product", "vendor", "odm",
+    "my_product", "my_stock", "my_heytap", "my_region", "my_engineering",
+    "my_company", "my_carrier", "my_preload", "my_manifest", "my_bigball",
+    "oem_cust1",
+]
+
+
 class FlashOrchestrator:
     """刷机流程编排器 - 连接所有模块，执行完整刷机流程"""
     
@@ -714,6 +734,11 @@ class FlashOrchestrator:
         if list(firmware_dir.glob("image-*.zip")):
             return True
 
+        # 一加/OPPO payload OTA 解包出的分区镜像目录（firmware/images/）也算完整系统
+        images_dir = firmware_dir / "images"
+        if images_dir.is_dir() and (images_dir / "system.img").exists() and (images_dir / "boot.img").exists():
+            return True
+
         if not getattr(self, "boot_only", False):
             return False
 
@@ -942,37 +967,42 @@ class FlashOrchestrator:
             
             # 3. 刷入系统镜像（-w 会清除数据）
             system_zip = list(firmware_dir.glob("image-*.zip"))
-            if not system_zip:
+            images_dir = firmware_dir / "images"
+            if not system_zip and (images_dir / "system.img").exists() and (images_dir / "boot.img").exists():
+                # 一加/OPPO payload OTA 解包出的分区镜像：两阶段刷入 + 清数据
+                logger.info(f"使用解包分区镜像目录: {images_dir}")
+                self._flash_partition_images(images_dir)
+            elif not system_zip:
                 payload_zips = [p for p in firmware_dir.glob("*.zip") if self._is_payload_ota(p)]
                 if payload_zips:
                     raise RuntimeError(
-                        "当前固件是 payload.bin OTA 包，不能直接用 fastboot update 刷入；"
-                        "请使用 --boot-only 只刷 APatch boot，或先将 payload.bin 转成 fastboot 可刷分区镜像/线刷包。"
+                        "当前固件是 payload.bin OTA 包且未解包出分区镜像，不能直接用 fastboot update 刷入；"
+                        "请使用 --boot-only 只刷 APatch boot，或先用 payload-dumper-go 解包到 firmware/images/ 后重试。"
                     )
-                raise RuntimeError("未找到系统镜像文件（需要 firmware/image-*.zip）")
-            
-            logger.info(f"刷入系统镜像: {system_zip[0].name}")
-            logger.info("正在刷入系统，请耐心等待...")
-            
-            # 不捕获输出，让 fastboot 的进度直接显示在终端
-            result = subprocess.run(
-                [
-                    self.device_controller.fastboot_path,
-                    "-s", self.device_controller.serial,
-                    "-w",  # 清除数据
-                    "update",
-                    system_zip[0].name  # 只使用文件名，因为 cwd 已经设置为 firmware_dir
-                ],
-                cwd=str(firmware_dir),
-                timeout=self.config_manager.global_config.flash_system_timeout
-            )
-            
-            if result.returncode != 0:
-                logger.error(f"系统镜像刷入失败，返回码: {result.returncode}")
-                raise RuntimeError("刷机失败")
-            
-            logger.info("=" * 60)
-            logger.info("✓ 系统刷入完成")
+                raise RuntimeError("未找到系统镜像文件（需要 firmware/image-*.zip 或 firmware/images/ 解包分区镜像）")
+            else:
+                logger.info(f"刷入系统镜像: {system_zip[0].name}")
+                logger.info("正在刷入系统，请耐心等待...")
+                
+                # 不捕获输出，让 fastboot 的进度直接显示在终端
+                result = subprocess.run(
+                    [
+                        self.device_controller.fastboot_path,
+                        "-s", self.device_controller.serial,
+                        "-w",  # 清除数据
+                        "update",
+                        system_zip[0].name  # 只使用文件名，因为 cwd 已经设置为 firmware_dir
+                    ],
+                    cwd=str(firmware_dir),
+                    timeout=self.config_manager.global_config.flash_system_timeout
+                )
+                
+                if result.returncode != 0:
+                    logger.error(f"系统镜像刷入失败，返回码: {result.returncode}")
+                    raise RuntimeError("刷机失败")
+                
+                logger.info("=" * 60)
+                logger.info("✓ 系统刷入完成")
             
         except subprocess.TimeoutExpired:
             logger.error("刷机超时")
@@ -983,6 +1013,75 @@ class FlashOrchestrator:
         
         return FlashState.WAIT_BOOT
     
+    def _find_patched_boot(self, build_dir: Path) -> Optional[Path]:
+        """在 build 目录 root/ 下查找 APatch 修补 boot（与 FLASH_BOOT 阶段同一套逻辑）。"""
+        root_dir = build_dir / "root"
+        if not root_dir.exists():
+            return None
+        patched_boots = list(root_dir.glob("*patched*.img"))
+        if not patched_boots:
+            return None
+        return max(patched_boots, key=lambda p: p.stat().st_mtime)
+
+    def _flash_partition_images(self, images_dir: Path) -> None:
+        """刷一加/OPPO payload OTA 解包出的分区镜像（firmware/images/）。
+
+        流程：
+        1. 普通 bootloader fastboot 刷非动态分区；boot 直接用 APatch 修补 boot，
+           全清后首次启动即带 root
+        2. fastboot reboot fastboot 进 fastbootd 刷动态分区（super 内）
+        3. fastboot -w 清除用户数据（全刷），完成后重启进系统
+        """
+        fc = self.device_controller
+
+        # 0) boot：优先刷 APatch 修补 boot，让全清后第一次启动就有 root
+        patched_boot = self._find_patched_boot(images_dir.parent)
+        if patched_boot is not None:
+            logger.info(f"刷入 APatch 修补 boot: {patched_boot.name}")
+            if not fc.fastboot_flash("boot", patched_boot, timeout=300):
+                raise RuntimeError("boot 分区刷入失败")
+        else:
+            boot_img = images_dir / "boot.img"
+            logger.warning("未找到 APatch 修补 boot，先刷官方 stock boot（后续 FLASH_BOOT 阶段再补刷）")
+            if not boot_img.exists() or not fc.fastboot_flash("boot", boot_img, timeout=300):
+                raise RuntimeError("boot 分区刷入失败")
+
+        # 1) 非动态分区（普通 fastboot）
+        for part in _NON_DYNAMIC_PARTITIONS:
+            img = images_dir / f"{part}.img"
+            if not img.exists():
+                raise RuntimeError(f"缺少分区镜像: {img}")
+            logger.info(f"刷入 {part} ...")
+            if not fc.fastboot_flash(part, img, timeout=600):
+                raise RuntimeError(f"分区刷入失败: {part}")
+
+        # 2) 重启进 fastbootd 刷动态分区
+        logger.info("重启到 fastbootd 刷动态分区...")
+        if not fc.fastboot_reboot_fastbootd(timeout=30):
+            raise RuntimeError("重启到 fastbootd 失败")
+        if not fc.wait_for_fastboot(timeout=90):
+            raise RuntimeError("等待 fastbootd 超时")
+
+        for part in _DYNAMIC_PARTITIONS:
+            img = images_dir / f"{part}.img"
+            if not img.exists():
+                raise RuntimeError(f"缺少分区镜像: {img}")
+            logger.info(f"刷入 {part} ...")
+            if not fc.fastboot_flash(part, img, timeout=1800):
+                raise RuntimeError(f"分区刷入失败: {part}")
+
+        # 3) 清数据（用户要求全刷）
+        logger.info("清除用户数据（全刷）...")
+        if not fc.fastboot_wipe(timeout=900):
+            raise RuntimeError("清除用户数据失败")
+
+        # 4) 重启进系统（WAIT_BOOT 阶段等待 ADB）
+        if not fc.fastboot_reboot(timeout=30):
+            raise RuntimeError("重启设备失败")
+
+        logger.info("=" * 60)
+        logger.info("✓ 系统分区刷入完成")
+
     def _handle_wait_boot(self) -> FlashState:
         """处理等待系统启动状态"""
         logger.info("等待系统启动...")
