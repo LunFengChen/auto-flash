@@ -342,6 +342,12 @@ class DeviceController:
             )
             return True
 
+        if "partition not found" in combined or "no such partition" in combined or "unknown partition" in combined:
+            logger.warning(
+                f"⚠ 设备不包含分区 {partition}，跳过刷写（该分区对当前机型不可用）"
+            )
+            return True
+
         logger.error(f"✗ 分区刷入失败: {partition} (returncode={returncode})")
         if stdout.strip():
             logger.error(f"  stdout: {stdout.strip()}")
