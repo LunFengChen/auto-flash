@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "android-auto-flash"
-version = "0.1.0"
+version = "0.2.0"
 description = "Android 全自动刷机工具"
 readme = "README.md"
 requires-python = ">=3.8"
