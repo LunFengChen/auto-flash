@@ -10,6 +10,7 @@ from loguru import logger
 import subprocess
 import random
 import hashlib
+import zipfile
 
 from .state_machine import FlashState, FlashStateMachine
 from .device_controller import DeviceController
@@ -25,6 +26,26 @@ from .error_handler import ErrorHandler
 from .progress_display import ProgressDisplay
 
 
+# 一加/OPPO payload OTA 解包出的分区镜像（firmware/images/*.img）分两批刷写：
+# - 非动态分区：普通 bootloader fastboot 直接刷
+# - 动态分区：需 fastboot reboot fastboot 进 fastbootd（userspace fastboot）后刷入 super
+# boot 分区不在此清单里：优先刷 APatch 修补 boot，保证全清后首次启动即有 root
+_NON_DYNAMIC_PARTITIONS = [
+    "abl", "aop", "bluetooth", "cmnlib", "cmnlib64", "devcfg", "dsp", "dtbo",
+    "featenabler", "hyp", "imagefv", "keymaster", "logo", "mdm_oem_stanvbk",
+    "modem", "multiimgoem", "qupfw", "recovery", "reserve", "spunvm",
+    "storsec", "tz", "uefisecapp", "vbmeta", "vbmeta_system", "xbl",
+    "xbl_config", "xbl_lp5", "xbl_config_lp5",
+]
+
+_DYNAMIC_PARTITIONS = [
+    "system", "system_ext", "product", "vendor", "odm",
+    "my_product", "my_stock", "my_heytap", "my_region", "my_engineering",
+    "my_company", "my_carrier", "my_preload", "my_manifest", "my_bigball",
+    "oem_cust1",
+]
+
+
 class FlashOrchestrator:
     """刷机流程编排器 - 连接所有模块，执行完整刷机流程"""
     
@@ -34,6 +55,7 @@ class FlashOrchestrator:
         config_path: Path = Path("config.yaml"),
         resume: bool = False,
         boot_only: bool = False,
+        clean_flash: bool = False,
         dry_run: bool = False,
         device_serial: Optional[str] = None
     ):
@@ -45,6 +67,7 @@ class FlashOrchestrator:
             config_path: 配置文件路径
             resume: 是否从检查点恢复
             boot_only: 只刷 boot.img（保留数据）
+            clean_flash: 只刷原厂系统并清空数据，不安装 APatch/APK/模块/binary
             dry_run: 模拟运行（不执行实际操作）
             device_serial: 指定设备序列号（可选，用于多设备场景）
         """
@@ -80,7 +103,19 @@ class FlashOrchestrator:
                         fastboot_devices.append(device_id)
             
             if fastboot_devices:
-                device_serial = fastboot_devices[0]
+                if device_serial:
+                    if device_serial not in fastboot_devices:
+                        logger.error(f"指定的 Fastboot 设备 {device_serial} 未连接")
+                        logger.info(f"可用 Fastboot 设备: {fastboot_devices}")
+                        raise RuntimeError(f"设备 {device_serial} 未连接")
+                    selected_device = device_serial
+                else:
+                    selected_device = fastboot_devices[0]
+                    if len(fastboot_devices) > 1:
+                        logger.warning(f"检测到多个 Fastboot 设备: {fastboot_devices}")
+                        logger.info(f"未指定序列号，使用第一个设备: {selected_device}")
+
+                device_serial = selected_device
                 logger.info(f"检测到 Fastboot 设备: {device_serial}")
                 logger.info("设备已在 Bootloader 模式，将跳过前置步骤直接刷机")
                 self.is_in_fastboot_mode = True
@@ -111,6 +146,7 @@ class FlashOrchestrator:
                 # 运行模式
                 self.resume = resume
                 self.boot_only = boot_only
+                self.clean_flash = clean_flash
                 self.dry_run = dry_run
                 
                 logger.info("✓ 刷机编排器初始化完成")
@@ -172,6 +208,7 @@ class FlashOrchestrator:
         # 运行模式
         self.resume = resume
         self.boot_only = boot_only
+        self.clean_flash = clean_flash
         self.dry_run = dry_run
         # is_in_fastboot_mode 已在第 62 行初始化为 False，Fastboot 模式会设置为 True
         
@@ -596,6 +633,7 @@ class FlashOrchestrator:
         列出设备目录下所有可用的 ROM build 目录。
 
         一套完整 ROM = 该 build 目录下存在 firmware/ 且其中含 image-*.zip。
+        boot-only 场景下，允许只存在 boot.img / payload OTA / 已修补 boot，
         系统镜像、boot 修补、root 均从同一套 build 目录取。
         """
         device_resources = Path("resources/devices") / self.config_manager.device_config.model
@@ -603,8 +641,7 @@ class FlashOrchestrator:
         if device_resources.exists():
             for build_dir in sorted(device_resources.iterdir()):
                 if build_dir.is_dir() and not build_dir.name.startswith('.'):
-                    firmware_dir = build_dir / "firmware"
-                    if firmware_dir.exists() and list(firmware_dir.glob("image-*.zip")):
+                    if self._rom_is_complete(build_dir):
                         builds.append(build_dir)
         return builds
 
@@ -638,7 +675,7 @@ class FlashOrchestrator:
             build = self._select_new_rom_build(device_resources)
             if build is None:
                 raise RuntimeError(
-                    f"未找到可用的完整 ROM 包（需含 firmware/image-*.zip）: {device_resources}"
+                    f"未找到可用的 ROM 包: {device_resources}"
                 )
 
         self.selected_build_id = build.name
@@ -700,10 +737,41 @@ class FlashOrchestrator:
 
         return None
 
+    def _rom_is_complete(self, build_dir: Path) -> bool:
+        """判断一个 build 目录是否对当前模式可用。
+
+        完整系统刷机要求 firmware/image-*.zip（Google factory 包内层镜像包）；
+        boot-only 模式只需要能定位 boot/root 资源，允许一加这类 payload OTA 目录。
+        """
+        firmware_dir = build_dir / "firmware"
+        if not firmware_dir.exists():
+            return False
+
+        if list(firmware_dir.glob("image-*.zip")):
+            return True
+
+        # 一加/OPPO payload OTA 解包出的分区镜像目录（firmware/images/）也算完整系统
+        images_dir = firmware_dir / "images"
+        if images_dir.is_dir() and (images_dir / "system.img").exists() and (images_dir / "boot.img").exists():
+            return True
+
+        if not getattr(self, "boot_only", False):
+            return False
+
+        root_dir = build_dir / "root"
+        has_patched_boot = root_dir.exists() and bool(list(root_dir.glob("apatch_patched*.img")))
+        has_original_boot = (firmware_dir / "boot.img").exists()
+        has_payload_ota = bool(list(firmware_dir.glob("*full.zip"))) or bool(list(firmware_dir.glob("*.zip")))
+        return has_patched_boot or has_original_boot or has_payload_ota
+
     @staticmethod
-    def _rom_is_complete(build_dir: Path) -> bool:
-        """判断一个 build 目录是否已是一套完整 ROM（firmware/ 下含 image-*.zip）"""
-        return (build_dir / "firmware").exists() and list((build_dir / "firmware").glob("image-*.zip"))
+    def _is_payload_ota(zip_path: Path) -> bool:
+        """判断 zip 是否为 payload.bin OTA 包。"""
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                return "payload.bin" in zf.namelist()
+        except zipfile.BadZipFile:
+            return False
 
     def _rom_inventory_path(self) -> Path:
         """当前设备型号的 ROM 清单路径（yamls/{model}-roms.yaml，缺省回退 redfin 清单）"""
@@ -915,31 +983,42 @@ class FlashOrchestrator:
             
             # 3. 刷入系统镜像（-w 会清除数据）
             system_zip = list(firmware_dir.glob("image-*.zip"))
-            if not system_zip:
-                raise RuntimeError("未找到系统镜像文件")
-            
-            logger.info(f"刷入系统镜像: {system_zip[0].name}")
-            logger.info("正在刷入系统，请耐心等待...")
-            
-            # 不捕获输出，让 fastboot 的进度直接显示在终端
-            result = subprocess.run(
-                [
-                    self.device_controller.fastboot_path,
-                    "-s", self.device_controller.serial,
-                    "-w",  # 清除数据
-                    "update",
-                    system_zip[0].name  # 只使用文件名，因为 cwd 已经设置为 firmware_dir
-                ],
-                cwd=str(firmware_dir),
-                timeout=self.config_manager.global_config.flash_system_timeout
-            )
-            
-            if result.returncode != 0:
-                logger.error(f"系统镜像刷入失败，返回码: {result.returncode}")
-                raise RuntimeError("刷机失败")
-            
-            logger.info("=" * 60)
-            logger.info("✓ 系统刷入完成")
+            images_dir = firmware_dir / "images"
+            if not system_zip and (images_dir / "system.img").exists() and (images_dir / "boot.img").exists():
+                # 一加/OPPO payload OTA 解包出的分区镜像：两阶段刷入 + 清数据
+                logger.info(f"使用解包分区镜像目录: {images_dir}")
+                self._flash_partition_images(images_dir)
+            elif not system_zip:
+                payload_zips = [p for p in firmware_dir.glob("*.zip") if self._is_payload_ota(p)]
+                if payload_zips:
+                    raise RuntimeError(
+                        "当前固件是 payload.bin OTA 包且未解包出分区镜像，不能直接用 fastboot update 刷入；"
+                        "请使用 --boot-only 只刷 APatch boot，或先用 payload-dumper-go 解包到 firmware/images/ 后重试。"
+                    )
+                raise RuntimeError("未找到系统镜像文件（需要 firmware/image-*.zip 或 firmware/images/ 解包分区镜像）")
+            else:
+                logger.info(f"刷入系统镜像: {system_zip[0].name}")
+                logger.info("正在刷入系统，请耐心等待...")
+                
+                # 不捕获输出，让 fastboot 的进度直接显示在终端
+                result = subprocess.run(
+                    [
+                        self.device_controller.fastboot_path,
+                        "-s", self.device_controller.serial,
+                        "-w",  # 清除数据
+                        "update",
+                        system_zip[0].name  # 只使用文件名，因为 cwd 已经设置为 firmware_dir
+                    ],
+                    cwd=str(firmware_dir),
+                    timeout=self.config_manager.global_config.flash_system_timeout
+                )
+                
+                if result.returncode != 0:
+                    logger.error(f"系统镜像刷入失败，返回码: {result.returncode}")
+                    raise RuntimeError("刷机失败")
+                
+                logger.info("=" * 60)
+                logger.info("✓ 系统刷入完成")
             
         except subprocess.TimeoutExpired:
             logger.error("刷机超时")
@@ -950,6 +1029,86 @@ class FlashOrchestrator:
         
         return FlashState.WAIT_BOOT
     
+    def _find_patched_boot(self, build_dir: Path) -> Optional[Path]:
+        """在 build 目录 root/ 下查找 APatch 修补 boot（与 FLASH_BOOT 阶段同一套逻辑）。"""
+        root_dir = build_dir / "root"
+        if not root_dir.exists():
+            return None
+        patched_boots = list(root_dir.glob("*patched*.img"))
+        if not patched_boots:
+            return None
+        return max(patched_boots, key=lambda p: p.stat().st_mtime)
+
+    def _flash_partition_images(self, images_dir: Path) -> None:
+        """刷一加/OPPO payload OTA 解包出的分区镜像（firmware/images/）。
+
+        流程：
+        1. 普通 bootloader fastboot 刷非动态分区；boot 直接用 APatch 修补 boot，
+           全清后首次启动即带 root
+        2. fastboot reboot fastboot 进 fastbootd 刷动态分区（super 内）
+        3. fastboot -w 清除用户数据（全刷），完成后重启进系统
+        """
+        fc = self.device_controller
+
+        # 0) boot：clean-flash 使用原厂 boot；普通流程才优先使用 APatch boot
+        boot_img = images_dir / "boot.img"
+        patched_boot = None if self.clean_flash else self._find_patched_boot(images_dir.parent.parent)
+        if patched_boot is not None:
+            logger.info(f"刷入 APatch 修补 boot: {patched_boot.name}")
+            if not fc.fastboot_flash("boot", patched_boot, timeout=300):
+                raise RuntimeError("boot 分区刷入失败")
+        else:
+            if self.clean_flash:
+                logger.info("clean-flash 模式：刷入原厂 stock boot")
+            else:
+                logger.warning("未找到 APatch 修补 boot，先刷官方 stock boot（后续 FLASH_BOOT 阶段再补刷）")
+            if not boot_img.exists() or not fc.fastboot_flash("boot", boot_img, timeout=300):
+                raise RuntimeError("boot 分区刷入失败")
+
+        # 1) 非动态分区（普通 fastboot）
+        for part in _NON_DYNAMIC_PARTITIONS:
+            img = images_dir / f"{part}.img"
+            if not img.exists():
+                raise RuntimeError(f"缺少分区镜像: {img}")
+            logger.info(f"刷入 {part} ...")
+            if not fc.fastboot_flash(part, img, timeout=600):
+                raise RuntimeError(f"分区刷入失败: {part}")
+
+        # 2) 重启进 fastbootd 刷动态分区
+        logger.info("重启到 fastbootd 刷动态分区...")
+        if not fc.fastboot_reboot_fastbootd(timeout=30):
+            raise RuntimeError("重启到 fastbootd 失败")
+        if not fc.wait_for_fastboot(timeout=90):
+            raise RuntimeError("等待 fastbootd 超时")
+
+        for part in _DYNAMIC_PARTITIONS:
+            img = images_dir / f"{part}.img"
+            if not img.exists():
+                raise RuntimeError(f"缺少分区镜像: {img}")
+            logger.info(f"刷入 {part} ...")
+            if not fc.fastboot_flash(part, img, timeout=1800):
+                raise RuntimeError(f"分区刷入失败: {part}")
+
+        # 3) fastbootd 中的 -w 在部分 OPLUS 设备上可能只返回成功但未实际格式化，
+        #    先回到 bootloader，再执行擦除，避免旧 /data 被保留。
+        logger.info("从 fastbootd 返回 Bootloader 后清除用户数据...")
+        if not fc.fastboot_reboot_bootloader(timeout=30):
+            raise RuntimeError("返回 Bootloader 失败，拒绝继续以免保留用户数据")
+        if not fc.wait_for_fastboot(timeout=90):
+            raise RuntimeError("等待 Bootloader 超时")
+
+        # 4) 清数据（用户要求全刷）
+        logger.info("清除用户数据（全刷）...")
+        if not fc.fastboot_wipe(timeout=900):
+            raise RuntimeError("清除用户数据失败")
+
+        # 5) 重启进系统（WAIT_BOOT 阶段等待 ADB）
+        if not fc.fastboot_reboot(timeout=30):
+            raise RuntimeError("重启设备失败")
+
+        logger.info("=" * 60)
+        logger.info("✓ 系统分区刷入完成")
+
     def _handle_wait_boot(self) -> FlashState:
         """处理等待系统启动状态"""
         logger.info("等待系统启动...")
@@ -967,6 +1126,10 @@ class FlashOrchestrator:
         import time
         logger.info("等待系统稳定...")
         time.sleep(10)
+
+        if self.clean_flash:
+            logger.info("clean-flash 模式：系统已全刷并清空数据，跳过所有后置安装")
+            return FlashState.COMPLETED
         
         return FlashState.SETUP_WIZARD
     
@@ -1523,8 +1686,9 @@ class FlashOrchestrator:
                 
                 logger.info(f"使用 superkey: {superkey}")
                 
-                # 方法1: 尝试使用 kpatch su（不需要应用启动）
-                # 从 APatch 源码看，可以直接用 libkpatch.so 执行 su
+                # 方法1: 尝试使用 APatch 直接提权路径（不需要应用启动）
+                # 先试旧的 kpatch 调用，再试 APatch 现在实际可用的 supercmd：
+                # /system/bin/truncate <superkey>
                 kpatch_paths = [
                     "/data/adb/ap/bin/kpatch",
                     "/system/lib64/libkpatch.so",
@@ -1552,10 +1716,29 @@ class FlashOrchestrator:
                     except Exception as e:
                         logger.debug(f"kpatch 路径 {kpatch_path} 不可用: {e}")
                         continue
-                
+
+                # APatch 新版实际使用的是 supercmd：/system/bin/truncate <superkey>
+                # 这条路径在 Pixel 5 上可直接进入 root shell，不需要先启动 App。
+                if not su_available:
+                    logger.info("kpatch su 不可用，尝试 APatch supercmd 路径...")
+                    apatch_shell = f"/system/bin/truncate {shlex.quote(superkey)}"
+                    try:
+                        result = subprocess.run(
+                            self.device_controller.adb_prefix + ["shell", f"{apatch_shell} -c 'echo test'"],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if result.returncode == 0 and "test" in result.stdout:
+                            su_available = True
+                            working_su_method = apatch_shell
+                            logger.info("✓ APatch supercmd 可用: /system/bin/truncate")
+                    except Exception as e:
+                        logger.debug(f"APatch supercmd 不可用: {e}")
+
                 # 如果 kpatch 不可用，尝试标准 su 路径
                 if not su_available:
-                    logger.info("kpatch su 不可用，尝试标准 su 路径...")
+                    logger.info("APatch supercmd 不可用，尝试标准 su 路径...")
                     
                     # 启动 APatch 应用以激活 root 环境
                     logger.info("启动 APatch 应用...")
@@ -1610,60 +1793,9 @@ class FlashOrchestrator:
                             logger.info(f"  su 仍不可用，尝试 {retry + 1}/{max_retries}")
                 
                 if not su_available:
-                    logger.warning("⚠ su 命令不可用")
-                    logger.warning("⚠ 可能原因: APatch 还未激活 root 环境")
-                    logger.info("=" * 60)
-                    logger.info("⚠ 需要手动激活 APatch")
-                    logger.info("=" * 60)
-                    logger.info("请在设备上执行以下操作：")
-                    logger.info("  1. 打开 APatch 应用")
-                    logger.info("  2. 等待应用初始化完成（可能需要几秒钟）")
-                    logger.info("  3. 授予必要的权限")
-                    logger.info("")
-                    logger.info("完成后，按 Enter 键继续模块安装...")
-                    logger.info("（或按 Ctrl+C 跳过模块安装）")
-                    logger.info("=" * 60)
-                    
-                    try:
-                        input()  # 等待用户按 Enter
-                        logger.info("继续检查 su 命令...")
-                        
-                        # 重新检查 su 是否可用
-                        for su_path in su_paths:
-                            try:
-                                result = subprocess.run(
-                                    self.device_controller.adb_prefix + ["shell", f"{su_path} -c 'echo test'"],
-                                    capture_output=True,
-                                    text=True,
-                                    timeout=5
-                                )
-                                if result.returncode == 0 and "test" in result.stdout:
-                                    su_available = True
-                                    working_su_method = su_path
-                                    logger.info(f"✓ su 现在可用了: {su_path}")
-                                    break
-                            except Exception:
-                                continue
-                        
-                        if not su_available:
-                            logger.error("✗ su 命令仍然不可用")
-                            logger.info("=" * 60)
-                            logger.info("模块已推送到设备 /sdcard/Download/ 目录")
-                            logger.info("请手动打开 APatch 管理器安装以下模块:")
-                            for module in modules_to_install:
-                                logger.info(f"  - {module.name}")
-                            logger.info("=" * 60)
-                            return FlashState.COMPLETED
-                    
-                    except KeyboardInterrupt:
-                        logger.warning("\n用户跳过模块安装")
-                        logger.info("=" * 60)
-                        logger.info("模块已推送到设备 /sdcard/Download/ 目录")
-                        logger.info("请手动打开 APatch 管理器安装以下模块:")
-                        for module in modules_to_install:
-                            logger.info(f"  - {module.name}")
-                            logger.info("=" * 60)
-                            return FlashState.COMPLETED
+                    logger.error("✗ APatch root 不可用：su/kpatch 均无法执行")
+                    logger.error("✗ 自动刷机禁止回退到人工激活或假完成；请检查 patched boot 与内核兼容性")
+                    raise RuntimeError("APatch root 未激活，自动 root 失败")
                 
                 if executable_files:
                     logger.info("使用已验证的 root 环境设置 binary 可执行权限...")
@@ -1689,13 +1821,13 @@ class FlashOrchestrator:
                 # 检查 APatch CLI 是否存在
                 try:
                     cli_check = subprocess.run(
-                        self.device_controller.adb_prefix + ["shell", working_su_method, "-c", "test -f /data/adb/ap/bin/apd && echo exists"],
+                        self.device_controller.adb_prefix + ["shell", working_su_method, "-c", "test -f /data/adb/apd && echo exists"],
                         capture_output=True,
                         text=True,
                         timeout=5
                     )
                     if "exists" not in cli_check.stdout:
-                        logger.warning("⚠ APatch CLI 不可用: /data/adb/ap/bin/apd 不存在")
+                        logger.warning("⚠ APatch CLI 不可用: /data/adb/apd 不存在")
                         logger.warning("⚠ 可能原因: APatch 应用未完成初始化")
                         logger.info("=" * 60)
                         logger.info("模块已推送到设备 /sdcard/Download/ 目录")
@@ -1715,7 +1847,7 @@ class FlashOrchestrator:
                     logger.info("=" * 60)
                     return FlashState.COMPLETED
                 
-                # APatch CLI: su -c "/data/adb/ap/bin/apd -s <superkey> module install <path>"
+                # APatch CLI: su -c "/data/adb/apd -s <superkey> module install <path>"
                 
                 # 获取 superkey
                 superkey = self.config_manager.device_config.superkey
@@ -1733,7 +1865,7 @@ class FlashOrchestrator:
                     module_path = f"/sdcard/Download/{module.name}"
                     logger.info(f"安装模块: {module.name}")
                     try:
-                        install_cmd = f'/data/adb/ap/bin/apd -s {superkey} module install "{module_path}"'
+                        install_cmd = f'/data/adb/apd -s {superkey} module install "{module_path}"'
                         output = subprocess.run(
                             self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(install_cmd)}"],
                             capture_output=True,

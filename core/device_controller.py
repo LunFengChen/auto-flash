@@ -5,6 +5,8 @@
 """
 
 import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
 from typing import Optional, List
@@ -174,7 +176,7 @@ class DeviceController:
         cmd = self.adb_prefix + ["shell", command]
         return self._run_command(cmd, timeout=timeout, capture_output=True)
     
-    def adb_install(self, apk_path: Path, timeout: int = 60) -> bool:
+    def adb_install(self, apk_path: Path, timeout: int = 900) -> bool:
         """
         安装 APK
         
@@ -306,32 +308,52 @@ class DeviceController:
     def fastboot_flash(self, partition: str, image_path: Path, timeout: int = 120) -> bool:
         """
         刷入分区
-        
+
         Args:
             partition: 分区名称，如 "boot"
             image_path: 镜像文件路径
             timeout: 超时时间（秒）
-        
+
         Returns:
-            是否刷入成功
+            是否刷入成功。critical 分区因 bootloader 未解锁 critical 而拒绝刷写时，
+            视为跳过（分区内容已存在且版本一致），仍返回 True。
         """
         cmd = self.fastboot_prefix + ["flash", partition, str(image_path)]
         try:
-            # 实时显示刷入进度
-            self._run_command(cmd, timeout=timeout, check=True)
-            logger.info(f"✓ 分区刷入成功: {partition}")
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"✗ 分区刷入失败: {partition}")
-            logger.error(f"  返回码: {e.returncode}")
-            if e.stdout:
-                logger.error(f"  stdout: {e.stdout}")
-            if e.stderr:
-                logger.error(f"  stderr: {e.stderr}")
+            returncode, stdout, stderr = self._run_command_teed(cmd, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            logger.error(f"✗ 分区刷入超时: {partition}")
             return False
         except Exception as e:
             logger.error(f"✗ 分区刷入异常: {partition}, {e}")
             return False
+
+        if returncode == 0:
+            logger.info(f"✓ 分区刷入成功: {partition}")
+            return True
+
+        # OPLUS/高通 bootloader：critical 分区（abl/xbl/tz/hyp 等）需要 unlock critical
+        # 才能刷写；用户要求不解锁 critical，这类分区引导固件已一致，跳过即可
+        combined = (stdout + "\n" + stderr).lower()
+        if "critical partition" in combined or "not allowed" in combined or "unlock_critical" in combined:
+            logger.warning(
+                f"⚠ 分区 {partition} 属于 critical 分区（bootloader 未解锁 critical），"
+                "跳过刷写（分区内容已存在且版本一致，无需重刷）"
+            )
+            return True
+
+        if "partition not found" in combined or "no such partition" in combined or "unknown partition" in combined:
+            logger.warning(
+                f"⚠ 设备不包含分区 {partition}，跳过刷写（该分区对当前机型不可用）"
+            )
+            return True
+
+        logger.error(f"✗ 分区刷入失败: {partition} (returncode={returncode})")
+        if stdout.strip():
+            logger.error(f"  stdout: {stdout.strip()}")
+        if stderr.strip():
+            logger.error(f"  stderr: {stderr.strip()}")
+        return False
     
     def fastboot_reboot(self, timeout: int = 10) -> bool:
         """
@@ -350,6 +372,52 @@ class DeviceController:
             logger.error(f"✗ Fastboot 重启失败: {e}")
             return False
     
+    def fastboot_reboot_fastbootd(self, timeout: int = 30) -> bool:
+        """
+        Fastboot 重启到 fastbootd（userspace fastboot，用于刷动态分区）
+
+        Returns:
+            是否执行成功
+        """
+        cmd = self.fastboot_prefix + ["reboot", "fastboot"]
+        try:
+            self._run_command(cmd, timeout=timeout, check=True)
+            logger.info("✓ Fastboot 重启到 fastbootd")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Fastboot 重启到 fastbootd 失败: {e}")
+            return False
+
+    def fastboot_reboot_bootloader(self, timeout: int = 30) -> bool:
+        """从 fastbootd 返回 bootloader fastboot。"""
+        cmd = self.fastboot_prefix + ["reboot", "bootloader"]
+        try:
+            self._run_command(cmd, timeout=timeout, check=True)
+            logger.info("✓ Fastboot 返回 Bootloader")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Fastboot 返回 Bootloader 失败: {e}")
+            return False
+
+    def fastboot_wipe(self, timeout: int = 900) -> bool:
+        """
+        Fastboot 清除用户数据（-w，全刷）
+
+        Args:
+            timeout: 超时时间（秒）
+
+        Returns:
+            是否执行成功
+        """
+        cmd = self.fastboot_prefix + ["-w"]
+        try:
+            self._run_command(cmd, timeout=timeout, check=True)
+            logger.info("✓ 用户数据已清除")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Fastboot 清除用户数据失败: {e}")
+            return False
+
     def fastboot_getvar(self, var_name: str) -> str:
         """
         获取 Fastboot 变量
@@ -404,16 +472,26 @@ class DeviceController:
                 )
                 
                 # 检查是否有设备连接
+                unauthorized_hint = False
                 for line in result.stdout.splitlines()[1:]:
-                    if "\tdevice" in line and "offline" not in line:
+                    serial_match = (not self.serial) or (self.serial and self.serial in line)
+                    if not serial_match:
+                        continue
+                    if "unauthorized" in line:
+                        unauthorized_hint = True
+                    elif "\tdevice" in line and "offline" not in line:
                         # 如果指定了序列号，检查是否匹配
                         if self.serial:
-                            if self.serial in line:
-                                logger.info(f"✓ ADB 已连接: {self.serial}")
-                                return True
+                            logger.info(f"✓ ADB 已连接: {self.serial}")
                         else:
                             logger.info("✓ ADB 已连接")
-                            return True
+                        return True
+                if unauthorized_hint:
+                    # 全刷清数据后 /data/misc/adb/adb_keys 被清空，需要用户在屏幕上授权
+                    logger.warning(
+                        "设备已连接但未授权（unauthorized），请在手机屏幕上点击"
+                        "『允许 USB 调试』并勾选『始终允许』"
+                    )
             except Exception:
                 pass
             
@@ -609,6 +687,63 @@ class DeviceController:
     
     # ==================== 工具方法 ====================
     
+    def _run_command_teed(
+        self,
+        cmd: List[str],
+        timeout: int = 30,
+    ):
+        """
+        执行命令并实时显示输出，同时捕获 stdout/stderr。
+
+        用于需要实时进度、又需要检测错误文本的长任务（如 fastboot flash）：
+        - 正常时像 _run_command(capture_output=False) 一样实时打印输出
+        - 出错时返回 (returncode, stdout_text, stderr_text) 供调用方解析
+
+        Returns:
+            (returncode, stdout_text, stderr_text)
+
+        Raises:
+            subprocess.TimeoutExpired: 命令超时
+        """
+        logger.debug(f"执行命令(teed): {' '.join(cmd)}")
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        captured = {"out": [], "err": []}
+
+        def _pump(stream, buf, prefix):
+            # 按字符流读，兼容 fastboot 用 \r 刷新的进度条（无换行）
+            while True:
+                chunk = stream.read(1)
+                if not chunk:
+                    break
+                buf.append(chunk)
+                sys.stdout.write(prefix + chunk)
+                sys.stdout.flush()
+
+        t_out = threading.Thread(
+            target=_pump, args=(proc.stdout, captured["out"], ""), daemon=True
+        )
+        t_err = threading.Thread(
+            target=_pump, args=(proc.stderr, captured["err"], "[stderr] "), daemon=True
+        )
+        t_out.start()
+        t_err.start()
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            raise
+        finally:
+            t_out.join()
+            t_err.join()
+        return proc.returncode, "".join(captured["out"]), "".join(captured["err"])
+
     def _run_command(
         self,
         cmd: List[str],

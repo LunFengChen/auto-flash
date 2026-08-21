@@ -7,8 +7,10 @@
     python -m core.tool_installer_cli --apk-only   # 只安装 APK
     python -m core.tool_installer_cli --binary-only # 只推送 Binary
     python -m core.tool_installer_cli --module-only # 只推送 Modules
+    python -m core.tool_installer_cli --config-dir yamls --config kebab-ks.yaml --device kebab  # OnePlus 8T
 """
 
+import sys
 from pathlib import Path
 import yaml
 from loguru import logger
@@ -28,6 +30,8 @@ def main():
     parser.add_argument("--module-only", action="store_true", help="只推送 Modules")
     parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls）")
     parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml）")
+    parser.add_argument("--device", default="redfin", help="设备型号/代号（如 redfin、kebab）")
+    parser.add_argument("--serial", default="", help="指定 ADB 设备序列号，多设备连接时必须指定")
     
     args = parser.parse_args()
     
@@ -48,11 +52,12 @@ def main():
         config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
         config_manager = ConfigManager(
             global_config_path=config_path,
-            device_model="redfin"  # 这里可以改成从参数读取
+            device_model=args.device
         )
         
         # 创建设备控制器
         dc = DeviceController(
+            serial=args.serial or None,
             adb_path=config_manager.global_config.adb_path,
             fastboot_path=config_manager.global_config.fastboot_path
         )

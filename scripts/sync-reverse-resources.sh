@@ -48,6 +48,8 @@ copy_file "$REVERSE_ROOT/tools/app-arm64-v8a-release.apk" \
 
 copy_file "${KUAISHOU_APK:-/home/xiaofeng/Downloads/快手.apk}" \
   "$PROJECT_ROOT/resources/common/apks/快手.apk"
+copy_file "${KUAISHOU_EXPRESS_APK:-/home/xiaofeng/Desktop/work/ds-rhino-ks-api/_local/apks/快手极速版-14.7.20.11779-11779-20260817.apk}" \
+  "$PROJECT_ROOT/resources/common/apks/快手极速版-14.7.20.11779-11779-20260817.apk"
 
 copy_file "$REVERSE_AUTO_FLASH/resources/common/binary/xj-server-v3" \
   "$PROJECT_ROOT/resources/common/binary/xj-server-v3"

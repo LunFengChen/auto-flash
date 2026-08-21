@@ -99,3 +99,6 @@ dmypy.json
 
 # Linting
 .pylint.d/
+
+# 设备 ROM build 目录（嵌套 firmware/、images/ 体积巨大，不提交）
+resources/devices/*/*/

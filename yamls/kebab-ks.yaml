@@ -1,6 +1,21 @@
-# Pixel 5 (redfin) 自动刷机配置 - APatch + 常用工具
-# 用法: python main.py --config-dir yamls --config pixel5-ks.yaml
-# ROM 策略: random_rom=true 时每次随机抽一套 resources/devices/redfin/ 下的 ROM（系统镜像、boot 补丁、root 均取自同一套）
+# OnePlus 8T (kebab) 自动刷机配置 - APatch + 常用工具
+# 用法（完整全刷，清数据）:
+#   python main.py --config-dir yamls --config kebab-ks.yaml --serial 860bd5c4 --fresh
+# 用法（只刷 boot + 装 APK/二进制/模块，保留数据）:
+#   python main.py --config-dir yamls --config kebab-ks.yaml --serial 860bd5c4 --boot-only
+#   python -m core.tool_installer_cli --config-dir yamls --config kebab-ks.yaml --device kebab
+#
+# ROM 说明:
+# - 一加官方整包是 payload.bin 格式 OTA（本机为 KB2000_14.0.0.601_CN01_full.zip），
+#   已用 payload-dumper-go 解包出全部 46 个分区镜像到 firmware/images/；
+#   完整刷机会分两阶段刷入：普通 fastboot 刷非动态分区 -> fastbootd 刷动态分区
+#   -> fastboot -w 清除数据（全刷），boot 直接用 APatch 修补 boot 以便首次启动即带 root。
+# - 也可放入 Google 式 image-*.zip 线刷包走原有 fastboot update 全刷流程。
+#
+# 设备型号说明:
+# - OnePlus 8T 的 ro.product.device 为 OnePlus8T；fastboot getvar product 可能返回 kebab 或 kona；
+#   config_manager 已做大小写归一化，devices 键用 kebab 即可；
+#   model 指向资源目录 resources/devices/oneplus-8t/。
 
 # 全局设置
 global:
@@ -24,7 +39,9 @@ timeouts:
   fastboot_connect: 30
   system_boot: 300
   ui_operation: 10
-  flash_system: 600
+  # 全刷包含多个大分区（system 800M / vendor 920M / system_ext 1.1G / reserve 1.1G 等），
+  # 单分区刷入超时已单独放宽，这里也调大兜底
+  flash_system: 1800
   boot_recovery: 120
 
 # 功能开关
@@ -36,8 +53,9 @@ features:
   install_modules: true           # 是否安装模块
   dry_run: false                  # 只打印操作，不执行
   no_color: false                 # 禁用彩色输出
-  random_rom: false                # 随机抽一套 ROM 刷（true 时忽略 build_id，随机选一套完整的 build 目录）
-  auto_download_rom: true          # 随机抽中的 ROM 本机缺失时，从 yamls/redfin-roms.yaml 清单自动下载并解压到 firmware/
+  # 一加 ROM 不在 dl.google.com 清单机制里，随机 ROM / 自动下载不适用，保持关闭
+  random_rom: false               # 随机抽一套 ROM 刷（true 时忽略 build_id，随机选一套完整的 build 目录）
+  auto_download_rom: false        # 随机抽中的 ROM 本机缺失时，从 yamls/{model}-roms.yaml 清单自动下载并解压到 firmware/
 
 # 批量刷机配置
 batch:
@@ -135,12 +153,16 @@ logging:
 
 # 设备配置
 devices:
-  redfin:
-    model: "redfin"
-    codename: "redfin"
-    display_name: "Google Pixel 5"
-    brand: "google"
-    android_version: 11
-    build_id: "RQ1D.210205.004"
+  kebab:
+    model: "oneplus-8t"           # 资源目录名：resources/devices/oneplus-8t/
+    codename: "kebab"
+    display_name: "OnePlus 8T"
+    brand: "oneplus"
+    android_version: 14
+    # 默认 ROM：ColorOS 14 CN（KB2000_14.0.0.601.CN01），本机已有
+    #   firmware/images/（payload-dumper-go 解包出的 46 个分区镜像）
+    #   root/apatch_patched_KB2000_14.0.0.601_CN01_0.13.2.img
+    build_id: "KB2000_14.0.0.601.CN01"
     superkey: "xiaofeng777"
-    boot_img_source: "extract"  # extract, provided, patched
+    # patched：直接复用 root/ 下已有的 apatch_patched_*.img，不重新修补
+    boot_img_source: "patched"  # extract, provided, patched

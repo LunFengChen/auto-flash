@@ -15,7 +15,7 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| `yamls/pixel5-ks.yaml` | Pixel 5 (redfin) APatch 刷机配置（含 reqable、appproxy、快手、xj-server-v3、带 Reqable 证书的 MoveCertificate 模块；`features.random_rom` 开启时每次随机抽一套 ROM 刷，`features.auto_download_rom` 开启时抽中本机缺失的 ROM 会从 `yamls/redfin-roms.yaml` 清单自动下载并解压到 `firmware/`） |
+| `yamls/pixel5-ks.yaml` | Pixel 5 (redfin) APatch 刷机配置（含 reqable、appproxy、快手、快手极速版、xj-server-v3、带 Reqable 证书的 MoveCertificate 模块；`features.random_rom` 开启时每次随机抽一套 ROM 刷，`features.auto_download_rom` 开启时抽中本机缺失的 ROM 会从 `yamls/redfin-roms.yaml` 清单自动下载并解压到 `firmware/`） |
 | `yamls/pixel3-ks.yaml` | Pixel 3 (blueline) APatch 刷机配置，规则同 pixel5-ks（ROM 清单为 `yamls/blueline-roms.yaml`） |
 | `yamls/redfin-roms.yaml` | redfin 全量 factory ROM 清单（64 套，Android 11/12/12.1/13/14；含 `download_url`，已去掉 dl.google.com 域名中部 `/dl/` 的可直连地址） |
 | `yamls/blueline-roms.yaml` | blueline 全量 factory ROM 清单（56 套，Android 9/10/11/12；含完整 `sha256` 与 `download_url`，已去掉 dl.google.com 域名中部 `/dl/` 的可直连地址） |

@@ -131,6 +131,42 @@ class Pixel3Adapter(PixelAdapter):
         super().__init__("blueline", language)
 
 
+class OnePlusAdapter(DeviceAdapter):
+    """OnePlus/OxygenOS/ColorOS 通用适配器"""
+
+    def __init__(self, model: str, language: str = "zh_CN"):
+        super().__init__(model, language)
+        logger.info(f"OnePlus 适配器初始化: model={model}, language={language}")
+
+    def get_ui_keywords(self, key: str) -> List[str]:
+        """从配置文件加载关键词，未配置时返回空列表"""
+        keyword_dict = self.keywords.get(key, {})
+
+        if self.language in keyword_dict:
+            return keyword_dict[self.language]
+
+        if "en_US" in keyword_dict:
+            return keyword_dict["en_US"]
+
+        all_keywords = []
+        for lang_keywords in keyword_dict.values():
+            all_keywords.extend(lang_keywords)
+        return all_keywords
+
+    def get_settings_path(self) -> List[str]:
+        """OnePlus 设备的开发者选项路径"""
+        if self.language == "zh_CN":
+            return ["系统设置", "开发者选项"]
+        return ["System settings", "Developer options"]
+
+
+class OnePlus8TAdapter(OnePlusAdapter):
+    """OnePlus 8T 专用适配器"""
+
+    def __init__(self, language: str = "zh_CN"):
+        super().__init__("kebab", language)
+
+
 class DeviceAdapterFactory:
     """设备适配器工厂"""
     
@@ -148,6 +184,11 @@ class DeviceAdapterFactory:
         "pixel7a": "lynx",
         "pixel8": "shiba",
         "pixel8pro": "husky",
+        "oneplus8t": "kebab",
+        "oneplus-8t": "kebab",
+        "op8t": "kebab",
+        # 部分 OnePlus 8T fastboot getvar product 会返回 SoC 平台名 kona
+        "kona": "kebab",
     }
     
     # 设备型号到适配器的映射
@@ -164,6 +205,8 @@ class DeviceAdapterFactory:
         "lynx": PixelAdapter,          # Pixel 7a
         "shiba": Pixel8Adapter,        # Pixel 8
         "husky": Pixel8Adapter,        # Pixel 8 Pro
+        "kebab": OnePlus8TAdapter,     # OnePlus 8T
+        "oneplus-8t": OnePlus8TAdapter, # OnePlus 8T 资源目录别名
     }
     
     @staticmethod

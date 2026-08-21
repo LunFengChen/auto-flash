@@ -165,14 +165,16 @@ def display_device_menu(devices: list):
 
 
 def flash_single_device(device_model: str, device_serial: str, resume: bool = False,
-                          config_path: Path = Path("config.yaml")):
-    """刷机单个设备"""
+                          config_path: Path = Path("config.yaml"), boot_only: bool = False,
+                          clean_flash: bool = False):
+    """刷机单个设备；clean_flash=True 时只刷原厂系统并清空数据。"""
     try:
         orchestrator = FlashOrchestrator(
             device_model=device_model,
             config_path=config_path,
             resume=resume,
-            boot_only=False,
+            boot_only=boot_only,
+            clean_flash=clean_flash,
             dry_run=False,
             device_serial=device_serial
         )
@@ -199,8 +201,9 @@ def flash_single_device(device_model: str, device_serial: str, resume: bool = Fa
         return False
 
 
-def flash_all_devices(device_model: str, devices: list, config_path: Path = Path("config.yaml")):
-    """并发刷机所有设备"""
+def flash_all_devices(device_model: str, devices: list, config_path: Path = Path("config.yaml"),
+                      boot_only: bool = False, clean_flash: bool = False):
+    """并发刷机所有设备。"""
     import threading
     import time
     
@@ -212,12 +215,14 @@ def flash_all_devices(device_model: str, devices: list, config_path: Path = Path
     def flash_thread(serial, config_path):
         # 检查是否有检查点
         checkpoint_info = check_device_checkpoint(serial)
-        resume = checkpoint_info["has_checkpoint"]
+        resume = checkpoint_info["has_checkpoint"] and not clean_flash
         
         if resume:
             logger.info(f"[{serial}] 从检查点恢复: {checkpoint_info['state']}")
         
-        results[serial] = flash_single_device(device_model, serial, resume, config_path)
+        results[serial] = flash_single_device(
+            device_model, serial, resume, config_path, boot_only, clean_flash
+        )
     
     # 创建线程
     for serial in devices:
@@ -256,7 +261,17 @@ def main():
     parser = argparse.ArgumentParser(description="Android 全自动刷机工具")
     parser.add_argument("--config-dir", default="", help="配置文件目录（如 yamls），为空则用项目根目录")
     parser.add_argument("--config", default="", help="配置文件名（如 pixel5-ks.yaml），为空则用 config.yaml")
+    parser.add_argument("--boot-only", action="store_true",
+                        help="只刷修补后的 boot.img + 安装 APK/模块，跳过系统刷入（保留数据）")
+    parser.add_argument("--serial", default="",
+                        help="指定要刷的设备序列号，跳过交互选择，避免多设备时误选")
+    parser.add_argument("--fresh", action="store_true",
+                        help="清除目标设备检查点并从头全刷（不从旧检查点恢复）")
+    parser.add_argument("--clean-flash", action="store_true",
+                        help="纯净全刷：刷原厂系统、清空数据，跳过 APatch/APK/模块/binary")
     args = parser.parse_args()
+    if args.boot_only and args.clean_flash:
+        parser.error("--boot-only 与 --clean-flash 不能同时使用")
 
     config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
     if not config_path.exists():
@@ -277,6 +292,12 @@ def main():
     
     # 获取连接的设备
     devices = get_connected_devices()
+    if args.serial:
+        if args.serial not in devices:
+            logger.error(f"指定设备未连接: {args.serial}")
+            logger.error(f"当前检测到设备: {', '.join(devices) if devices else '无'}")
+            sys.exit(1)
+        devices = [args.serial]
     
     if not devices:
         logger.error("未检测到本地 USB 设备")
@@ -286,11 +307,20 @@ def main():
         logger.error("  3. ADB 驱动是否已安装")
         sys.exit(1)
     
-    # 显示设备菜单
-    display_device_menu(devices)
-    
-    # 获取用户选择
-    choice = input("\n请选择设备 (输入序号/A/C/Q): ").strip().upper()
+    if args.fresh or args.clean_flash:
+        logger.info("\n清除目标设备检查点...")
+        for serial in devices:
+            cm = CheckpointManager(serial)
+            if cm.has_checkpoint():
+                cm.clear_checkpoint()
+                logger.info(f"✓ 已清除设备 {serial} 的检查点")
+
+    # 显示设备菜单；指定 --serial 时跳过交互，强制只刷该设备
+    if args.serial:
+        choice = "1"
+    else:
+        display_device_menu(devices)
+        choice = input("\n请选择设备 (输入序号/A/C/Q): ").strip().upper()
     
     if choice == 'Q':
         logger.info("已退出")
@@ -358,7 +388,10 @@ def main():
     # 执行刷机
     if choice == 'A':
         # 全部设备并发刷机
-        flash_all_devices(device_model, selected_devices, config_path)
+        flash_all_devices(
+            device_model, selected_devices, config_path,
+            boot_only=args.boot_only, clean_flash=args.clean_flash
+        )
     else:
         # 单个设备刷机
         selected_serial = selected_devices[0]
@@ -367,15 +400,22 @@ def main():
         checkpoint_info = check_device_checkpoint(selected_serial)
         resume = False
         
-        if checkpoint_info["has_checkpoint"]:
-            resume_choice = input(f"\n检测到检查点 (状态: {checkpoint_info['state']})，是否从检查点恢复？(Y/n): ").strip().lower()
-            resume = resume_choice != 'n'
+        if checkpoint_info["has_checkpoint"] and not (args.fresh or args.clean_flash):
+            if args.serial:
+                logger.info(f"检测到检查点 (状态: {checkpoint_info['state']})；--serial 默认不自动恢复，需恢复请走交互模式")
+                resume = False
+            else:
+                resume_choice = input(f"\n检测到检查点 (状态: {checkpoint_info['state']})，是否从检查点恢复？(Y/n): ").strip().lower()
+                resume = resume_choice != 'n'
         
         logger.info(f"\n开始刷机: {selected_serial}")
         if resume:
             logger.info(f"从检查点恢复: {checkpoint_info['state']}")
         
-        flash_single_device(device_model, selected_serial, resume, config_path)
+        flash_single_device(
+            device_model, selected_serial, resume, config_path,
+            boot_only=args.boot_only, clean_flash=args.clean_flash
+        )
 
 
 if __name__ == "__main__":

@@ -68,7 +68,14 @@ def test_random_download_failure_falls_back():
     orch = make_orchestrator(True, True)
     local = [p.name for p in orch._discover_rom_builds()]
     assert local, "测试需至少一套本机 ROM"
-    with patch.object(orch, "_download_rom", return_value=False) as mock_dl:
+    # 固定随机抽中本机缺失的 ROM，保证两次迭代都走下载失败路径（避免抽中本机已有 ROM 提前返回）；
+    # 兜底 random.choice(local_builds) 传入的是 Path 列表，直接返回第一个
+    def pick_not_local(lst):
+        if lst and isinstance(lst[0], Path):
+            return lst[0]
+        return next(e for e in lst if e["build_id"] not in local)
+    with patch.object(orch, "_download_rom", return_value=False) as mock_dl, \
+         patch("core.flash_orchestrator.random.choice", side_effect=pick_not_local):
         b = orch._select_new_rom_build(Path("resources/devices/redfin"))
         assert mock_dl.call_count == 2, f"应尝试 2 次下载，实际 {mock_dl.call_count}"
     assert b is not None and b.name in local, f"下载失败应回退本机 ROM，实际 {b.name if b else None}"
