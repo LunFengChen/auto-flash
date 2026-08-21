@@ -31,9 +31,8 @@ latest_apatch_apk() {
 
 APATCH_APK="${APATCH_APK:-$(latest_apatch_apk)}"
 if [ -n "$APATCH_APK" ] && [ -f "$APATCH_APK" ]; then
-  APATCH_APK_DIR="$(basename "$(dirname "$APATCH_APK")")"
   APATCH_APK_NAME="$(basename "$APATCH_APK")"
-  copy_file "$APATCH_APK" "$PROJECT_ROOT/resources/common/root/${APATCH_APK_DIR}-${APATCH_APK_NAME}"
+  copy_file "$APATCH_APK" "$PROJECT_ROOT/resources/common/root/$APATCH_APK_NAME"
 else
   copy_file "$REVERSE_AUTO_FLASH/resources/common/root/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk" \
     "$PROJECT_ROOT/resources/common/root/APatch_11220_39ba3bb_feature-rom-root-grants-debug.apk"

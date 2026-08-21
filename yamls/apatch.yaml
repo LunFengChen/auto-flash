@@ -19,16 +19,16 @@ build:
     -PAUTO_INSTALL_APATCH=true
     -x downloadJailbreakKo
   apk_name: "APatch_{version}_{commit}_{branch}-rom-root-grants-debug.apk"
-  # APatch 仓库当前实际输出目录：app/build/outputs/apk/debug/APatch_11232_66be29d_feature/
-  apk_output: "app/build/outputs/apk/debug/APatch_11232_66be29d_feature/rom-root-grants-debug.apk"
-  apk_dest: "/home/xiaofeng/Desktop/projects/auto-flash/resources/common/root/APatch_11232_66be29d_feature-rom-root-grants-debug.apk"
+  # AGP 9.3+ 不允许 archivesName 使用路径，当前输出为扁平 APK 文件。
+  apk_output: "app/build/outputs/apk/debug/APatch_11281_b3e57a0_feature-rom-root-grants-debug.apk"
+  apk_dest: "/home/xiaofeng/Desktop/projects/auto-flash/resources/common/root/APatch_11281_b3e57a0_feature-rom-root-grants-debug.apk"
 
 # 本地资源来源：工具和常用 APK 直接从桌面 reverse 拿
 resource_sources:
   reverse_root: "/home/xiaofeng/Desktop/reverse"
   reverse_auto_flash: "/home/xiaofeng/Desktop/reverse/devices/auto-flash"
   sync_script: "scripts/sync-reverse-resources.sh"
-  apatch_apk_prefer: "/home/xiaofeng/Desktop/projects/apatch/app/build/outputs/apk/debug/APatch_11232_66be29d_feature/rom-root-grants-debug.apk"
+  apatch_apk_prefer: "/home/xiaofeng/Desktop/projects/apatch/app/build/outputs/apk/debug/APatch_11281_b3e57a0_feature-rom-root-grants-debug.apk"
   reqable: "/home/xiaofeng/Desktop/reverse/devices/auto-flash/resources/common/apks/reqable-app-android-arm64.apk"
   appproxy: "/home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk"  # package: cn.ys1231.appproxy, versionName: v0.2.7
   kuaishou: "/home/xiaofeng/Downloads/快手.apk"

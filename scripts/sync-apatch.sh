@@ -33,11 +33,9 @@ copy_apk() {
   fi
   DEST="$AUTO_FLASH_ROOT/resources/common/root"
   mkdir -p "$DEST"
-  APK_DIR="$(basename "$(dirname "$APK")")"
   APK_NAME="$(basename "$APK")"
-  DEST_NAME="${APK_DIR}-${APK_NAME}"
-  cp -v "$APK" "$DEST/$DEST_NAME"
-  echo "==> APK path: resources/common/root/$DEST_NAME"
+  cp -v "$APK" "$DEST/$APK_NAME"
+  echo "==> APK path: resources/common/root/$APK_NAME"
 }
 
 cd "$REPO"
