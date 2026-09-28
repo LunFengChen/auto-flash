@@ -55,6 +55,40 @@ def test_non_random_uses_config_build():
     print("✓ 非随机模式 -> 配置 build_id TP1A.221105.002")
 
 
+def test_sailfish_inventory_has_default_rom():
+    orch = make_orchestrator(False, True)
+    orch.config_manager.device_config.model = "sailfish"
+    orch.config_manager.device_config.build_id = "QP1A.191005.007.A3"
+    roms = orch._load_rom_inventory()
+    assert len(roms) == 72, f"sailfish 清单应为 72 套，实际 {len(roms)}"
+    entry = next(e for e in roms if e["build_id"] == "QP1A.191005.007.A3")
+    url = entry["download_url"]
+    assert "/dl/android/" not in url, f"下载地址仍含中部 /dl/: {url}"
+    assert url.endswith("sailfish-qp1a.191005.007.a3-factory-d4552659.zip")
+    print("✓ sailfish 清单含默认 ROM QP1A.191005.007.A3，download_url 已去掉 /dl/")
+
+
+def test_non_random_downloads_missing_config_build():
+    orch = make_orchestrator(False, True)
+    orch.config_manager.device_config.model = "sailfish"
+    orch.config_manager.device_config.build_id = "QP1A.191005.007.A3"
+    missing = Path("/tmp/auto-flash-no-roms-sailfish")
+    complete_calls = {"n": 0}
+
+    def fake_complete(_path):
+        complete_calls["n"] += 1
+        return complete_calls["n"] > 1
+
+    with patch.object(orch, "_rom_is_complete", side_effect=fake_complete), \
+         patch.object(orch, "_download_rom", return_value=True) as mock_dl, \
+         patch.object(orch, "_discover_rom_builds", return_value=[]):
+        b = orch._select_new_rom_build(missing)
+    assert mock_dl.call_count == 1, f"配置 ROM 缺失时应下载 1 次，实际 {mock_dl.call_count}"
+    assert mock_dl.call_args[0][0]["build_id"] == "QP1A.191005.007.A3"
+    assert b is not None and b.name == "QP1A.191005.007.A3"
+    print("✓ 非随机 + auto_download：配置 build_id 本机缺失时会下载")
+
+
 def test_random_no_download_uses_local():
     orch = make_orchestrator(True, False)
     local = [p.name for p in orch._discover_rom_builds()]
@@ -111,6 +145,8 @@ def test_resolve_idempotent_and_snapshot():
 if __name__ == "__main__":
     test_inventory_integrity()
     test_non_random_uses_config_build()
+    test_sailfish_inventory_has_default_rom()
+    test_non_random_downloads_missing_config_build()
     test_random_no_download_uses_local()
     test_random_download_failure_falls_back()
     test_random_download_hits_local_no_download()

@@ -131,6 +131,27 @@ class Pixel3Adapter(PixelAdapter):
         super().__init__("blueline", language)
 
 
+class Pixel1Adapter(PixelAdapter):
+    """Pixel 1 专用适配器"""
+
+    def __init__(self, language: str = "zh_CN"):
+        super().__init__("sailfish", language)
+
+
+class Pixel2Adapter(PixelAdapter):
+    """Pixel 2 专用适配器"""
+
+    def __init__(self, language: str = "zh_CN"):
+        super().__init__("walleye", language)
+
+
+class Pixel4Adapter(PixelAdapter):
+    """Pixel 4 专用适配器"""
+
+    def __init__(self, language: str = "zh_CN"):
+        super().__init__("flame", language)
+
+
 class OnePlusAdapter(DeviceAdapter):
     """OnePlus/OxygenOS/ColorOS 通用适配器"""
 
@@ -172,7 +193,10 @@ class DeviceAdapterFactory:
     
     # 友好名称到代号的映射
     MODEL_ALIASES = {
+        "pixel1": "sailfish",
+        "pixel2": "walleye",
         "pixel3": "blueline",
+        "pixel4": "flame",
         "pixel3xl": "crosshatch",
         "pixel5": "redfin",
         "pixel5a": "barbet",
@@ -193,7 +217,10 @@ class DeviceAdapterFactory:
     
     # 设备型号到适配器的映射
     ADAPTERS = {
+        "sailfish": Pixel1Adapter,     # Pixel 1
+        "walleye": Pixel2Adapter,      # Pixel 2
         "blueline": Pixel3Adapter,     # Pixel 3
+        "flame": Pixel4Adapter,        # Pixel 4
         "crosshatch": Pixel3Adapter,   # Pixel 3 XL
         "redfin": Pixel5Adapter,      # Pixel 5
         "barbet": Pixel5Adapter,       # Pixel 5a

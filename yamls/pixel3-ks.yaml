@@ -24,7 +24,7 @@ global:
 timeouts:
   adb_connect: 30
   fastboot_connect: 30
-  system_boot: 300
+  system_boot: 600
   ui_operation: 10
   flash_system: 600
   boot_recovery: 120
@@ -52,11 +52,11 @@ root:
   method: "apatch"                # apatch, magisk, kernelsu, none
 
   apatch:
-    version: "11281"              # APatch 版本号（用于匹配修补后的 boot.img）
+    version: "11289"              # APatch 版本号（用于匹配修补后的 boot.img）
     password: "xiaofeng777"       # 默认密码（建议修改）
     # APatch APK 来自本地仓库 /home/xiaofeng/Desktop/projects/apatch 的构建产物；
     # sync 脚本会复制到 resources/common/root/，刷完免手动授权。
-    apk_path: "root/APatch_11281_b3e57a0_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
+    apk_path: "root/APatch_11289_5b12fdd_feature-rom-root-grants-debug.apk"  # APatch APK 相对于 resources/common/
 
   magisk:
     version: "30600"              # Magisk 版本号（用于匹配修补后的 boot.img）
@@ -76,6 +76,7 @@ apk_install:
     - "apks/appproxy.apk"                    # appproxy，从 /home/xiaofeng/Desktop/reverse/tools/app-arm64-v8a-release.apk 同步
     - "apks/快手.apk"                        # 快手
     - "apks/快手极速版-14.7.20.11779-11779-20260817.apk"  # 快手极速版
+    - "apks/知乎.apk"                        # 知乎
 
 # 模块安装配置
 module_install:
@@ -142,10 +143,9 @@ devices:
     codename: "blueline"
     display_name: "Google Pixel 3"
     brand: "google"
-    android_version: 11
-    # 默认 ROM：RQ1A.210205.004（Android 11，2021-02，通用版，本机已下载校验）
-    # 本机另有 SP1A.210812.016.C2（A12 最终版）/ PQ1A.181205.006（A9）可切换；
-    # 注意 RQ1D 等带运营商标注的是定制版；A11 最终版为 RQ3A.211001.001（清单可下）
-    build_id: "RQ1A.210205.004"
+    android_version: 10
+    # 默认 ROM：QQ3A.200805.001（Android 10，2020-08，Pixel 3 最终通用版）
+    # 本机另有 RQ1A.210205.004（A11）/ SP1A.210812.016.C2（A12 最终版）/ PQ1A.181205.006（A9）
+    build_id: "QQ3A.200805.001"
     superkey: "xiaofeng777"
     boot_img_source: "extract"  # extract, provided, patched

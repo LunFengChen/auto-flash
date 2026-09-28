@@ -267,11 +267,15 @@ def main():
                         help="指定要刷的设备序列号，跳过交互选择，避免多设备时误选")
     parser.add_argument("--fresh", action="store_true",
                         help="清除目标设备检查点并从头全刷（不从旧检查点恢复）")
+    parser.add_argument("--resume", action="store_true",
+                        help="从目标设备检查点恢复（配合 --serial 使用，覆盖 --serial 默认不恢复的行为）")
     parser.add_argument("--clean-flash", action="store_true",
                         help="纯净全刷：刷原厂系统、清空数据，跳过 APatch/APK/模块/binary")
     args = parser.parse_args()
     if args.boot_only and args.clean_flash:
         parser.error("--boot-only 与 --clean-flash 不能同时使用")
+    if args.fresh and args.resume:
+        parser.error("--fresh 与 --resume 不能同时使用")
 
     config_path = Path(args.config_dir) / (args.config or "config.yaml") if args.config_dir else Path(args.config or "config.yaml")
     if not config_path.exists():
@@ -401,8 +405,11 @@ def main():
         resume = False
         
         if checkpoint_info["has_checkpoint"] and not (args.fresh or args.clean_flash):
-            if args.serial:
-                logger.info(f"检测到检查点 (状态: {checkpoint_info['state']})；--serial 默认不自动恢复，需恢复请走交互模式")
+            if args.resume:
+                logger.info(f"检测到检查点 (状态: {checkpoint_info['state']})，--resume 将从检查点恢复")
+                resume = True
+            elif args.serial:
+                logger.info(f"检测到检查点 (状态: {checkpoint_info['state']})；--serial 默认不自动恢复，需恢复请加 --resume")
                 resume = False
             else:
                 resume_choice = input(f"\n检测到检查点 (状态: {checkpoint_info['state']})，是否从检查点恢复？(Y/n): ").strip().lower()

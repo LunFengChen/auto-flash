@@ -17,8 +17,14 @@
 | --- | --- |
 | `yamls/pixel5-ks.yaml` | Pixel 5 (redfin) APatch 刷机配置（含 reqable、appproxy、快手、快手极速版、xj-server-v3、带 Reqable 证书的 MoveCertificate 模块；`features.random_rom` 开启时每次随机抽一套 ROM 刷，`features.auto_download_rom` 开启时抽中本机缺失的 ROM 会从 `yamls/redfin-roms.yaml` 清单自动下载并解压到 `firmware/`） |
 | `yamls/pixel3-ks.yaml` | Pixel 3 (blueline) APatch 刷机配置，规则同 pixel5-ks（ROM 清单为 `yamls/blueline-roms.yaml`） |
+| `yamls/pixel1-ks.yaml` | Pixel 1 (sailfish) APatch 刷机配置，规则同 pixel3-ks，额外安装知乎；默认 ROM 为 Android 10 最终通用版 `QP1A.191005.007.A3`（ROM 清单为 `yamls/sailfish-roms.yaml`） |
+| `yamls/pixel2-ks.yaml` | Pixel 2 (walleye) APatch 刷机配置，规则同 pixel3-ks；默认 ROM 为 Android 10 最终通用版 `QQ3A.200805.001`（ROM 清单为 `yamls/walleye-roms.yaml`） |
+| `yamls/pixel4-ks.yaml` | Pixel 4 (flame) APatch 刷机配置，规则同 pixel3-ks；默认 ROM 为 Android 10 最终通用版 `QQ3A.200805.001`（ROM 清单为 `yamls/flame-roms.yaml`） |
 | `yamls/redfin-roms.yaml` | redfin 全量 factory ROM 清单（64 套，Android 11/12/12.1/13/14；含 `download_url`，已去掉 dl.google.com 域名中部 `/dl/` 的可直连地址） |
 | `yamls/blueline-roms.yaml` | blueline 全量 factory ROM 清单（56 套，Android 9/10/11/12；含完整 `sha256` 与 `download_url`，已去掉 dl.google.com 域名中部 `/dl/` 的可直连地址） |
+| `yamls/sailfish-roms.yaml` | sailfish 全量 factory ROM 清单（72 套，Android 7.1/8/8.1/9/10；含 `download_url`，已去掉 dl.google.com 域名中部 `/dl/` 的可直连地址） |
+| `yamls/walleye-roms.yaml` | walleye 全量 factory ROM 清单（56 套；含 `download_url`，已去掉 dl.google.com 域名中部 `/dl/` 的可直连地址） |
+| `yamls/flame-roms.yaml` | flame 全量 factory ROM 清单（74 套；含 `download_url`，已去掉 dl.google.com 域名中部 `/dl/` 的可直连地址） |
 | `yamls/apatch.yaml` | APatch 本地 fork 同步/构建参数（拉 gh 新版 + 合并上游 bmax121/APatch） |
 
 使用 yamls 配置运行：
@@ -29,6 +35,15 @@ python main.py --config-dir yamls --config pixel5-ks.yaml
 
 # 刷机（Pixel 3）
 python main.py --config-dir yamls --config pixel3-ks.yaml
+
+# 刷机（Pixel 1）
+python main.py --config-dir yamls --config pixel1-ks.yaml --serial FA7620301598 --fresh
+
+# 刷机（Pixel 2）
+python main.py --config-dir yamls --config pixel2-ks.yaml --serial HT85W1A04012 --fresh
+
+# 刷机（Pixel 4）
+python main.py --config-dir yamls --config pixel4-ks.yaml --fresh
 
 # 只安装 APK / 二进制 / 模块
 python -m core.tool_installer_cli --config-dir yamls --config pixel5-ks.yaml
@@ -74,7 +89,10 @@ bash scripts/sync-reverse-resources.sh
 ## 支持设备
 
 - Google Pixel 5 (redfin)
+- Google Pixel 4 (flame)
 - Google Pixel 3 (blueline)
+- Google Pixel 2 (walleye)
+- Google Pixel 1 (sailfish)
 - 可根据真实刷机流程扩展其他设备
 
 ## 快速开始

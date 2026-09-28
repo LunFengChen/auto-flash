@@ -11,6 +11,8 @@ import subprocess
 import random
 import hashlib
 import zipfile
+import shlex
+import time
 
 from .state_machine import FlashState, FlashStateMachine
 from .device_controller import DeviceController
@@ -584,6 +586,164 @@ class FlashOrchestrator:
         
         logger.debug("存储服务等待超时")
         return False
+
+    _APATCH_PKG = "me.bmax.apatch"
+    _APATCH_MAIN = "me.bmax.apatch/.ui.MainActivity"
+    _APATCH_CLI_PATHS = ("/data/adb/apd", "/data/adb/ap/bin/apd")
+
+    def _root_shell(self, su_method: str, command: str, timeout: int = 15) -> subprocess.CompletedProcess:
+        """通过已验证的 su/supercmd 前缀执行命令。
+
+        su_method 可能是 `/system/bin/su`，也可能是带空格的
+        `/system/bin/truncate <superkey>`。必须整段塞进一条 adb shell 字符串，
+        不能拆成 argv，否则 supercmd 的 `-c` 会丢。
+        """
+        full = f"{su_method} -c {shlex.quote(command)}"
+        return subprocess.run(
+            self.device_controller.adb_prefix + ["shell", full],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+    def _find_apatch_cli(self, su_method: str) -> Optional[str]:
+        """查找已部署的 APatch userspace CLI（apd）。"""
+        for path in self._APATCH_CLI_PATHS:
+            try:
+                result = self._root_shell(su_method, f"test -x {shlex.quote(path)} && echo {path}")
+            except Exception as e:
+                logger.debug(f"检查 {path} 失败: {e}")
+                continue
+            if result.returncode == 0 and path in (result.stdout or ""):
+                return path
+        return None
+
+    def _start_apatch_app(self) -> bool:
+        """拉起 APatch 主界面，触发首次解压 apd / 自动授权。"""
+        try:
+            result = subprocess.run(
+                self.device_controller.adb_prefix + ["shell", "am", "start", "-n", self._APATCH_MAIN],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                logger.info("✓ APatch 应用已启动")
+                return True
+            logger.warning(f"⚠ 启动 APatch 失败: {result.stderr}")
+            return False
+        except Exception as e:
+            logger.warning(f"⚠ 启动 APatch 异常: {e}")
+            return False
+
+    def _deploy_apd_from_installed_apk(self, su_method: str) -> bool:
+        """按 APatch 官方 installApatch() 预置 userspace，不等 Home 页自动装。
+
+        上游就是 `cp -f $nativeLibraryDir/libapd.so /data/adb/apd`（见
+        apatch APatchApp.installApatch）。libapd.so 是 PIE 可执行文件，
+        不是给 dlopen 的普通 so。只拷 apd 不够：官方还会放 busybox/kptools、
+        给 magiskpolicy/resetprop/apd 建软链、写 su_path/version、restorecon。
+        """
+        try:
+            pkg = subprocess.run(
+                self.device_controller.adb_prefix + ["shell", "pm", "path", self._APATCH_PKG],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except Exception as e:
+            logger.warning(f"⚠ 查询 APatch APK 路径失败: {e}")
+            return False
+
+        apk = ""
+        for line in (pkg.stdout or "").splitlines():
+            if line.startswith("package:"):
+                apk = line.split(":", 1)[1].strip()
+                break
+        if not apk:
+            logger.warning("⚠ 未找到已安装的 APatch APK，无法预置 apd")
+            return False
+
+        # 与 APatchApp.installApatch() 的 cmds 对齐，不发明另一套目录布局。
+        deploy_cmd = f"""
+set -e
+APK={shlex.quote(apk)}
+BASE=$(dirname "$APK")
+NAT=""
+for d in "$BASE/lib/arm64" "$BASE/lib/arm64-v8a"; do
+  if [ -f "$d/libapd.so" ]; then NAT="$d"; break; fi
+done
+if [ -z "$NAT" ]; then
+  echo NO_LIB
+  exit 2
+fi
+mkdir -p /data/adb/ap/bin /data/adb/ap/log
+cp -f "$NAT/libapd.so" /data/adb/apd
+chmod 700 /data/adb/apd
+rm -f /data/adb/ap/bin/apd
+ln -s /data/adb/apd /data/adb/ap/bin/apd
+restorecon /data/adb/apd >/dev/null 2>&1 || true
+rm -f /data/adb/ap/bin/magiskpolicy /data/adb/ap/bin/resetprop
+ln -s /data/adb/apd /data/adb/ap/bin/magiskpolicy
+ln -s /data/adb/apd /data/adb/ap/bin/resetprop
+if [ -f "$NAT/libbusybox.so" ]; then
+  cp -f "$NAT/libbusybox.so" /data/adb/ap/bin/busybox
+  chmod 755 /data/adb/ap/bin/busybox
+fi
+if [ -f "$NAT/libkptools.so" ]; then
+  cp -f "$NAT/libkptools.so" /data/adb/ap/bin/kptools
+  chmod 755 /data/adb/ap/bin/kptools
+fi
+touch /data/adb/ap/package_config
+echo /system/bin/su > /data/adb/ap/su_path
+/data/adb/apd -V 2>/dev/null | awk '{{print $NF}}' > /data/adb/ap/version || true
+restorecon -R /data/adb/ap >/dev/null 2>&1 || true
+if [ -x /data/adb/ap/bin/magiskpolicy ]; then
+  /data/adb/ap/bin/magiskpolicy --magisk --live >/dev/null 2>&1 || true
+fi
+echo DEPLOYED
+""".strip()
+        result = self._root_shell(su_method, deploy_cmd, timeout=20)
+        if result.returncode == 0 and "DEPLOYED" in (result.stdout or ""):
+            logger.info("✓ 已按 APatch installApatch 预置 /data/adb/apd")
+            return True
+        logger.warning("⚠ 从 APK 预置 apd 失败，改等 App 自行解压")
+        if result.stdout:
+            logger.debug(f"  输出: {result.stdout.strip()}")
+        if result.stderr:
+            logger.debug(f"  错误: {result.stderr.strip()}")
+        return False
+
+    def _ensure_apatch_cli(self, su_method: str, timeout: int = 90) -> str:
+        """等到 APatch CLI 可用。root（supercmd）就绪不等于 apd 已部署。"""
+        existing = self._find_apatch_cli(su_method)
+        if existing:
+            logger.info(f"✓ APatch CLI 可用: {existing}")
+            return existing
+
+        logger.info("APatch CLI (/data/adb/apd) 尚未部署，kernel root 已可用；开始预置并等待...")
+        self._start_apatch_app()
+        self._deploy_apd_from_installed_apk(su_method)
+
+        existing = self._find_apatch_cli(su_method)
+        if existing:
+            logger.info(f"✓ APatch CLI 可用: {existing}")
+            return existing
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            time.sleep(3)
+            existing = self._find_apatch_cli(su_method)
+            if existing:
+                logger.info(f"✓ APatch CLI 可用: {existing}")
+                return existing
+            remaining = int(deadline - time.time())
+            logger.info(f"  等待 APatch 解压 apd... (剩余 {remaining} 秒)")
+
+        raise RuntimeError(
+            "APatch CLI (/data/adb/apd) 超时仍未就绪，拒绝跳过模块安装。"
+            "请确认 APatch APK 已安装且 patched boot 已生效后重试该步骤。"
+        )
     
     def _handle_init(self) -> FlashState:
         """处理初始化状态"""
@@ -725,16 +885,31 @@ class FlashOrchestrator:
                 return random.choice(local_builds)
             return None
 
-        # 非随机模式：配置 build_id 优先，否则第一套本机可用 ROM
-        if local_builds:
-            cfg_build_id = self.config_manager.device_config.build_id
-            build = next((b for b in local_builds if b.name == cfg_build_id), local_builds[0])
-            if build.name != cfg_build_id:
-                logger.warning(f"配置 build_id ({cfg_build_id}) 不可用，改用 ROM: {build.name}")
-            else:
-                logger.info(f"使用配置指定 ROM: {build.name}")
-            return build
+        # 非随机模式：配置 build_id 优先；本机缺失且允许下载则从清单拉取；否则取第一套本机 ROM
+        cfg_build_id = self.config_manager.device_config.build_id
+        if cfg_build_id:
+            candidate = device_resources / cfg_build_id
+            if self._rom_is_complete(candidate):
+                logger.info(f"使用配置指定 ROM: {cfg_build_id}")
+                return candidate
+            if self.config_manager.global_config.auto_download_rom:
+                inventory = self._load_rom_inventory()
+                entry = next((e for e in inventory if e.get("build_id") == cfg_build_id), None)
+                if entry is None:
+                    logger.warning(f"ROM 清单中没有配置的 build_id: {cfg_build_id}")
+                elif self._download_rom(entry) and self._rom_is_complete(candidate):
+                    logger.info(f"使用配置指定 ROM（已下载就绪）: {cfg_build_id}")
+                    return candidate
+                else:
+                    logger.warning(f"配置 build_id ({cfg_build_id}) 下载失败")
+            if local_builds:
+                logger.warning(f"配置 build_id ({cfg_build_id}) 不可用，改用 ROM: {local_builds[0].name}")
+                return local_builds[0]
+            return None
 
+        if local_builds:
+            logger.info(f"未配置 build_id，使用本机 ROM: {local_builds[0].name}")
+            return local_builds[0]
         return None
 
     def _rom_is_complete(self, build_dir: Path) -> bool:
@@ -845,7 +1020,7 @@ class FlashOrchestrator:
     def _curl_download(self, url: str, dest: Path) -> bool:
         """curl 下载：DoH 收集候选 IP -> 实测选最快节点锁定；失败回退默认路径"""
         from urllib.parse import urlparse
-        base = ["curl", "-L", "--fail", "--retry", "2", "--retry-delay", "3",
+        base = ["curl", "-L", "--fail", "-C", "-", "--retry", "5", "--retry-delay", "3",
                 "-H", "Accept-Encoding: identity"]
         host = urlparse(url).hostname or ""
         candidates = self._doh_resolve_ips(host)
@@ -1463,24 +1638,9 @@ class FlashOrchestrator:
             logger.info("启动 APatch 应用以激活 root 环境...")
             logger.info("=" * 60)
             
-            try:
-                # 启动 APatch 主 Activity
-                result = subprocess.run(
-                    self.device_controller.adb_prefix + ["shell", "am", "start", "-n", "me.bmax.apatch/.ui.MainActivity"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                
-                if result.returncode == 0:
-                    logger.info("✓ APatch 应用已启动")
-                    logger.info("等待 APatch 初始化（10 秒）...")
-                    import time
-                    time.sleep(10)
-                else:
-                    logger.warning(f"⚠ 启动 APatch 失败: {result.stderr}")
-            except Exception as e:
-                logger.warning(f"⚠ 启动 APatch 异常: {e}")
+            # kernel supercmd 此时可能已可用，但 /data/adb/apd 要等 App 解压。
+            # 这里只拉起 App；真正等 CLI 在 INSTALL_MODULES 里做，避免再傻等 10 秒后误判成功。
+            self._start_apatch_app()
         
         return FlashState.INSTALL_MODULES
     
@@ -1818,34 +1978,9 @@ class FlashOrchestrator:
                     except Exception as e:
                         logger.warning(f"⚠ binary 可执行权限设置异常: {e}")
 
-                # 检查 APatch CLI 是否存在
-                try:
-                    cli_check = subprocess.run(
-                        self.device_controller.adb_prefix + ["shell", working_su_method, "-c", "test -f /data/adb/apd && echo exists"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    if "exists" not in cli_check.stdout:
-                        logger.warning("⚠ APatch CLI 不可用: /data/adb/apd 不存在")
-                        logger.warning("⚠ 可能原因: APatch 应用未完成初始化")
-                        logger.info("=" * 60)
-                        logger.info("模块已推送到设备 /sdcard/Download/ 目录")
-                        logger.info("请手动打开 APatch 管理器安装以下模块:")
-                        for module in modules_to_install:
-                            logger.info(f"  - {module.name}")
-                        logger.info("=" * 60)
-                        return FlashState.COMPLETED
-                except Exception as e:
-                    logger.error(f"✗ 检查 APatch CLI 失败: {e}")
-                    logger.info("回退到手动安装模式")
-                    logger.info("=" * 60)
-                    logger.info("模块已推送到设备 /sdcard/Download/ 目录")
-                    logger.info("请手动打开 APatch 管理器安装以下模块:")
-                    for module in modules_to_install:
-                        logger.info(f"  - {module.name}")
-                    logger.info("=" * 60)
-                    return FlashState.COMPLETED
+                # kernel supercmd 就绪 ≠ userspace apd 已部署。必须等到 CLI，
+                # 禁止把「apd 还没解压」当成刷机成功。
+                apd_path = self._ensure_apatch_cli(working_su_method)
                 
                 # APatch CLI: su -c "/data/adb/apd -s <superkey> module install <path>"
                 
@@ -1865,7 +2000,7 @@ class FlashOrchestrator:
                     module_path = f"/sdcard/Download/{module.name}"
                     logger.info(f"安装模块: {module.name}")
                     try:
-                        install_cmd = f'/data/adb/apd -s {superkey} module install "{module_path}"'
+                        install_cmd = f'{apd_path} -s {superkey} module install "{module_path}"'
                         output = subprocess.run(
                             self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(install_cmd)}"],
                             capture_output=True,
@@ -1885,40 +2020,7 @@ class FlashOrchestrator:
                 
                 logger.info(f"模块安装完成: {install_success_count}/{len(modules_to_install)}")
                 
-                # 2. 修改 su 路径为 /system/bin/sx（无论模块是否安装成功都执行）
-                logger.info("修改 su 路径为 /system/bin/sx...")
-                try:
-                    # 使用已验证可用的提权方式执行，避免硬编码 su 导致权限/兼容性问题
-                    set_su_path_cmd = "sh -c 'echo /system/bin/sx > /data/adb/ap/su_path'"
-                    result = subprocess.run(
-                        self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(set_su_path_cmd)}"],
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    if result.returncode == 0:
-                        logger.info("✓ su 路径已修改为 /system/bin/sx")
-                        # 验证修改是否成功
-                        verify_su_path_cmd = "cat /data/adb/ap/su_path"
-                        verify_result = subprocess.run(
-                            self.device_controller.adb_prefix + ["shell", f"{working_su_method} -c {shlex.quote(verify_su_path_cmd)}"],
-                            capture_output=True,
-                            text=True,
-                            timeout=5
-                        )
-                        if verify_result.returncode == 0:
-                            current_path = verify_result.stdout.strip()
-                            logger.info(f"  当前 su 路径: {current_path}")
-                            if current_path != "/system/bin/sx":
-                                logger.warning(f"⚠ su 路径验证失败，期望 '/system/bin/sx'，实际 '{current_path}'")
-                    else:
-                        logger.warning(f"⚠ 修改 su 路径失败，返回码: {result.returncode}")
-                        if result.stderr:
-                            logger.warning(f"  错误: {result.stderr}")
-                except Exception as e:
-                    logger.warning(f"⚠ 修改 su 路径失败: {e}")
-                
-                # 3. 重启设备使模块生效（只有在模块安装成功时才重启）
+                # 重启设备使模块生效（只有在模块安装成功时才重启）
                 if install_success_count > 0:
                     logger.info("=" * 60)
                     logger.info("模块安装完成，重启设备使模块生效...")

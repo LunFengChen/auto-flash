@@ -211,6 +211,9 @@ class ConfigManager:
 
         # 已知别名（与 DeviceAdapterFactory.MODEL_ALIASES 保持一致）
         alias_map = {
+            "pixel1": "sailfish",
+            "pixel2": "walleye",
+            "pixel4": "flame",
             "oneplus8t": "kebab",
             "oneplus-8t": "kebab",
             "op8t": "kebab",
@@ -325,13 +328,27 @@ class ConfigManager:
                 # 检查资源目录
                 if self.device_config.build_id:
                     device_resources = Path("resources/devices") / self.device_config.model / self.device_config.build_id
+                    can_download = (
+                        self.global_config.auto_download_rom
+                        and rom_inventory_path(self.device_config.model).exists()
+                    )
                     if not device_resources.exists():
-                        errors.append(f"设备资源目录不存在: {device_resources}")
+                        if can_download:
+                            logger.info(
+                                f"设备资源目录不存在，auto_download_rom 已开启，刷机时将下载 {self.device_config.build_id}: {device_resources}"
+                            )
+                        else:
+                            errors.append(f"设备资源目录不存在: {device_resources}")
                     else:
                         # 检查 firmware 目录
                         firmware_dir = device_resources / "firmware"
                         if not firmware_dir.exists():
-                            errors.append(f"固件目录不存在: {firmware_dir}")
+                            if can_download:
+                                logger.info(
+                                    f"固件目录不存在，auto_download_rom 已开启，刷机时将下载 {self.device_config.build_id}: {firmware_dir}"
+                                )
+                            else:
+                                errors.append(f"固件目录不存在: {firmware_dir}")
 
                         # 检查 root 目录
                         root_dir = device_resources / "root"
